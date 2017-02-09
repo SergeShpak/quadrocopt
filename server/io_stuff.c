@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "include/data_struct.h"
+#include "include/network_interactions.h"
 
 char *uint_to_bytes_arr(unsigned int repr);
 unsigned int bytes_arr_to_uint(char *ca);
@@ -80,7 +80,7 @@ float *vec_to_floats(float *vec, size_t len) {
   return new_vec;
 }
 
-void print_pack(packet *p) {
+void print_pack(Packet *p) {
   float *payload = get_floats(p);
   size_t floats_count = get_floats_count(p);
   for (int i = 0; i < floats_count; i++) {
