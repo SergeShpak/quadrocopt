@@ -9,6 +9,7 @@
 #include "include/data_struct.h"
 #include "include/listener.h"
 #include "include/utils.h"
+#include "include/constants.h"
 
 pthread_mutex_t *batch_stock_first_mu = NULL;
 pthread_mutex_t *batch_stock_second_mu = NULL;
@@ -16,12 +17,17 @@ pthread_mutex_t *io_mu = NULL;
 NetworkInterface *net_interface = NULL;
 BatchStock *bs = NULL;
 pthread_t *listener_first = NULL, *listener_second = NULL, *sender = NULL;
+pthread_barrier_t *listeners_barrier = NULL;
+char listeners_count = 0;
+pthread_mutex_t listeners_count_mutex;
+pthread_cond_t all_listeners_ready;
 FILE *log_file = NULL;
 
 // Static functions declarations
 
 void initialize_globals();
 void initialize_mutexes();
+void initialize_barriers();
 pthread_mutex_t *init_mutex(pthread_mutexattr_t *mu_attr);
 void free_mutexes();
 void free_mutex(pthread_mutex_t*);
@@ -41,10 +47,7 @@ int main(int argc, char **argv) {
   spawn_workers();
    
   while(1) {
-    sleep(0);
-    pthread_mutex_lock(io_mu);
-    fprintf(log_file, "%s\n", "Hello from dispatcher!");
-    pthread_mutex_unlock(io_mu);
+    
   }
 
   tear_down();
@@ -55,12 +58,20 @@ void initialize_globals() {
   net_interface = initialize_network_interface();
   bs = initialize_batch_stock();
   initialize_mutexes();
+  initialize_barriers();
 }
 
 void initialize_mutexes() {
   batch_stock_first_mu = init_mutex(NULL);
   batch_stock_second_mu = init_mutex(NULL);
   io_mu = init_mutex(NULL);
+}
+
+void initialize_barriers() {
+  pthread_barrierattr_t attr;
+  pthread_barrierattr_init(&attr);
+  listeners_barrier = (pthread_barrier_t *) malloc(sizeof(pthread_barrier_t));
+  pthread_barrier_init(listeners_barrier, &attr, SERVER_NUMBER_OF_LISTENERS);
 }
 
 pthread_mutex_t *init_mutex(pthread_mutexattr_t *mu_attr) {
@@ -106,6 +117,14 @@ void create_listeners() {
   if (status) {
     exit_error("Could not start the second listener");
   }
+  // MUTEX: listeners_count_mutex
+  // waiting while all listeners lock batch store mutex
+  pthread_mutex_lock(&listeners_count_mutex);
+  pthread_cond_wait(&all_listeners_ready, &listeners_count_mutex);
+  pthread_mutex_unlock(&listeners_count_mutex);
+  // MUTEX UNLOCKED: listeners_count_mutex
+  
+  safe_print("Dispatcher: Listeners initialized\n", io_mu);
 }
 
 int start_listener(listener_t type, pthread_mutex_t *batch_stock_mu, int sd, 
@@ -126,6 +145,19 @@ void create_sender() {
 }
 
 void *run_listener_callback(void *lp) {
+  ListenerPack *listener_pack = (ListenerPack *) lp;
+  pthread_mutex_lock(listener_pack->mu_set->batch_stock_mu);
+  // MUTEX: listeners_count_mutex
+  // incrementing the number of activated listeners
+  pthread_mutex_lock(&listeners_count_mutex);
+  if (SERVER_NUMBER_OF_LISTENERS - 1 == listeners_count) {
+    pthread_cond_signal(&all_listeners_ready);
+  }
+  listeners_count++;
+  pthread_mutex_unlock(&listeners_count_mutex);
+  // MUTEX UNLOCKED: listeners_count_mutex
+  
+  safe_print("Listener initialized\n", listener_pack->mu_set->io_mu);
   run_listener((ListenerPack *) lp);
   return NULL;
 }

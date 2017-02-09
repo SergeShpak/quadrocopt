@@ -6,11 +6,11 @@
 #include "include/listener.h"
 
 void run_listener(ListenerPack *lp) {
+  int i;
   while(1) {
-    sleep(0);
-    int listener_num = lp->type == LISTENER_FIRST ? 1 : 2;
+    scanf("%d\n", &i);
     pthread_mutex_lock(lp->mu_set->io_mu);
-    fprintf(lp->log_file, "%s %d\n", "Hello from Listener", listener_num); 
+    printf("Listener %d read number %d\n", lp->type, i); 
     pthread_mutex_unlock(lp->mu_set->io_mu);
   }
 }
