@@ -55,7 +55,8 @@ char *uint_to_bytes_arr(unsigned int int_repr) {
 
 unsigned int bytes_arr_to_uint(char *ca) {
   unsigned int result = 0;
-  for (int i = 0; i < 4; i++) {
+  int i;
+  for (i = 0; i < 4; i++) {
     result |= ((ca[i] << (8 * i)) & (0xff << (8 * i)));
   }
     return result;
@@ -74,7 +75,8 @@ packet_t char_arr_to_pack_type(char *ca) {
 
 float *vec_to_floats(float *vec, size_t len) {
   float *new_vec = (float*) malloc(sizeof(float) * len);
-  for (int i = 0; i < len; i++) {
+  int i;
+  for (i = 0; i < len; i++) {
     new_vec[i] = vec[i + 1];
   } 
   return new_vec;
@@ -83,7 +85,8 @@ float *vec_to_floats(float *vec, size_t len) {
 void print_pack(packet *p) {
   float *payload = get_floats(p);
   size_t floats_count = get_floats_count(p);
-  for (int i = 0; i < floats_count; i++) {
+  int i;
+  for (i = 0; i < floats_count; i++) {
     printf("%f ", payload[i]);
   }
 }
