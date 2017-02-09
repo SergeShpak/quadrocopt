@@ -1,0 +1,7 @@
+**/build/
+**/bin/
+**/*.txt
+**/*.sh
+**/*.swp
+**/log
+**/.ycm_extra_conf.py
