@@ -80,23 +80,4 @@ size_t get_floats_count(Packet *pack);
 **  End of Packet structure region  *******************************************
 ******************************************************************************/
 
-
-/******************************************************************************
-**  ListenerPack structure  ***************************************************
-******************************************************************************/
-
-typedef struct _ListenerPack {
-  int sd;
-  pthread_mutex_t *batch_stock_mu;  
-  BatchStock *batch_stock;
-} ListenerPack;
-
-ListenerPack *initialize_listener_pack(int sd, pthread_mutex_t *batch_stock_mu,
-                                        BatchStock *bs);
-void free_listener_pack(ListenerPack *lp);
-
-/******************************************************************************
-**  End of ListenerPac structure region  **************************************
-******************************************************************************/
-
 #endif

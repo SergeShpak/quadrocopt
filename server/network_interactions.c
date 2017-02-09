@@ -191,27 +191,3 @@ void free_pack(Packet *pack) {
 /******************************************************************************
 **  End of Packet structure region  *******************************************
 ******************************************************************************/
-
-
-/******************************************************************************
-**  ListenerPack structure  ***************************************************
-******************************************************************************/
-
-ListenerPack *initialize_listener_pack(int sd, pthread_mutex_t *batch_stock_mu,
-                                        BatchStock *bs) {
-  ListenerPack *lp = (ListenerPack *) malloc(sizeof(ListenerPack));
-  lp->sd = sd;
-  lp->batch_stock_mu = batch_stock_mu;
-  lp->batch_stock = bs;
-  return lp;
-}
-
-void free_listener_pack(ListenerPack *lp) {
-  free(lp);
-}
-
-/******************************************************************************
-**  End of ListenerPac structure region  **************************************
-******************************************************************************/
-
-
