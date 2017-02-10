@@ -14,6 +14,8 @@
 pthread_mutex_t *batch_stock_first_mu = NULL;
 pthread_mutex_t *batch_stock_second_mu = NULL;
 pthread_mutex_t *io_mu = NULL;
+pthread_mutex_t *calc_batch_first_mu = NULL;
+pthread_mutex_t *calc_batch_second_mu = NULL;
 NetworkInterface *net_interface = NULL;
 BatchStock *bs = NULL;
 pthread_t *listener_first = NULL, *listener_second = NULL, *sender = NULL;
@@ -34,16 +36,19 @@ void free_mutex(pthread_mutex_t*);
 void tear_down();
 void *run_listener_callback(void*);
 void create_listeners();
-int start_listener(listener_t type, pthread_mutex_t *batch_stock_mu, int sd, 
-                    pthread_t *listener_thread);
+int start_listener(listener_t type, pthread_mutex_t *batch_stock_mu, 
+                                pthread_mutex_t *calc_batch_mu, int sd, 
+                                pthread_t *listener_thread);
 void create_sender();
 void spawn_workers();
+void lock_mutexes();
 
 // End of static functions declarations
 
 int main(int argc, char **argv) {
   log_file = fopen("log", "w");
   initialize_globals();
+  lock_mutexes();
   spawn_workers();
    
   while(1) {
@@ -64,6 +69,8 @@ void initialize_globals() {
 void initialize_mutexes() {
   batch_stock_first_mu = init_mutex(NULL);
   batch_stock_second_mu = init_mutex(NULL);
+  calc_batch_first_mu = init_mutex(NULL);
+  calc_batch_second_mu = init_mutex(NULL);
   io_mu = init_mutex(NULL);
 }
 
@@ -107,13 +114,13 @@ void create_listeners() {
   int status;
   listener_first = (pthread_t *) malloc(sizeof(pthread_t));
   status = start_listener(LISTENER_FIRST, batch_stock_first_mu, 
-                    net_interface->sd_in_first, listener_first);
+              calc_batch_first_mu, net_interface->sd_in_first, listener_first);
   if (status) {
     exit_error("Could not start the first listener.");
   }
   listener_second = (pthread_t *) malloc(sizeof(pthread_t));
   status = start_listener(LISTENER_SECOND, batch_stock_second_mu, 
-                          net_interface->sd_in_second, listener_second);
+          calc_batch_second_mu, net_interface->sd_in_second, listener_second);
   if (status) {
     exit_error("Could not start the second listener");
   }
@@ -123,15 +130,13 @@ void create_listeners() {
   pthread_cond_wait(&all_listeners_ready, &listeners_count_mutex);
   pthread_mutex_unlock(&listeners_count_mutex);
   // MUTEX UNLOCKED: listeners_count_mutex
-  
-  safe_print("Dispatcher: Listeners initialized\n", io_mu);
 }
 
-int start_listener(listener_t type, pthread_mutex_t *batch_stock_mu, int sd, 
-                    pthread_t *listener_thread) {
+int start_listener(listener_t type, pthread_mutex_t *batch_stock_mu, 
+          pthread_mutex_t *calc_batch_mu, int sd, pthread_t *listener_thread) {
   int status;
   ListenerMutexSet *lms = 
-                      create_listener_mutex_set(batch_stock_mu, io_mu);
+              create_listener_mutex_set(batch_stock_mu, calc_batch_mu, io_mu);
   ListenerPack *lp = initialize_listener_pack(type, sd, lms, bs, log_file);
   listener_first = (pthread_t *) malloc(sizeof(pthread_t));
   pthread_attr_t attr;
@@ -157,7 +162,11 @@ void *run_listener_callback(void *lp) {
   pthread_mutex_unlock(&listeners_count_mutex);
   // MUTEX UNLOCKED: listeners_count_mutex
   
-  safe_print("Listener initialized\n", listener_pack->mu_set->io_mu);
   run_listener((ListenerPack *) lp);
   return NULL;
+}
+
+void lock_mutexes() {
+  pthread_mutex_lock(calc_batch_first_mu);
+  pthread_mutex_lock(calc_batch_second_mu);
 }
