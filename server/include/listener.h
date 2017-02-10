@@ -24,6 +24,8 @@ struct _ListenerPack {
 };
 
 struct _ListenerMutexSet {
+  pthread_cond_t *calc_read;
+  pthread_cond_t *listener_wrote;
   pthread_mutex_t *batch_stock_mu;
   pthread_mutex_t *calc_batch_mu;
   pthread_mutex_t *io_mu; 
@@ -32,8 +34,9 @@ struct _ListenerMutexSet {
 ListenerPack *initialize_listener_pack(listener_t type, int sd, 
                     ListenerMutexSet *mu_set, BatchStock *bs, FILE *log_file);
 
-ListenerMutexSet *create_listener_mutex_set(pthread_mutex_t *batch_stock_mu,
-                      pthread_mutex_t *calc_batch_mu, pthread_mutex_t *io_mu);
+ListenerMutexSet *create_listener_mutex_set(pthread_cond_t *calc_read, 
+              pthread_cond_t *listener_wrote, pthread_mutex_t *batch_stock_mu,
+              pthread_mutex_t *calc_batch_mu, pthread_mutex_t *io_mu);
 
 void free_listener_pack(ListenerPack *lp);
 void free_listener_mutex_set(ListenerMutexSet *mu_set);

@@ -30,10 +30,9 @@ void run_listener(ListenerPack *lp) {
   struct sockaddr_in *remote = initialize_remote_sockaddr();
   do_first_run(lp, bufin, remote);
   while(1) {
-    wait_until_calc_reads(lp);
     receive_packet(lp->sd, bufin, remote, lp->type); 
     Packet *received_pack = bytes_to_pack(bufin);
-    pthread_mutex_lock(lp->mu_set->calc_batch_mu);
+    wait_until_calc_reads(lp);
     store_batch(received_pack, lp->batch_stock, lp->type);
     pthread_mutex_unlock(lp->mu_set->batch_stock_mu);
   }
