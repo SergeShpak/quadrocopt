@@ -21,7 +21,8 @@ void do_first_run(ListenerPack *lp, char *buf,
                   struct sockaddr_in *remote_addr);
 void receive_packet(int sd, char *buf, struct sockaddr_in *remote_addr, 
                     listener_t type);
-void wait_unitl_calc_reads(ListenerPack *lp);
+void wait_until_calc_reads(ListenerPack *lp);
+void signal_ready(ListenerPack *lp);
 
 // End of static functions region
 
@@ -34,7 +35,7 @@ void run_listener(ListenerPack *lp) {
     Packet *received_pack = bytes_to_pack(bufin);
     wait_until_calc_reads(lp);
     store_batch(received_pack, lp->batch_stock, lp->type);
-    pthread_mutex_unlock(lp->mu_set->batch_stock_mu);
+    signal_ready(lp);
   }
 }
 
@@ -53,9 +54,12 @@ void free_listener_pack(ListenerPack *lp) {
   free(lp);
 }
 
-ListenerMutexSet *create_listener_mutex_set(pthread_mutex_t *batch_stock_mu,
-                    pthread_mutex_t *calc_batch_mu, pthread_mutex_t *io_mu) {
+ListenerMutexSet *create_listener_mutex_set(pthread_cond_t *calc_read,
+            pthread_cond_t *listener_wrote, pthread_mutex_t *batch_stock_mu,
+            pthread_mutex_t *calc_batch_mu, pthread_mutex_t *io_mu) {
   ListenerMutexSet *lms = (ListenerMutexSet *)malloc(sizeof(ListenerMutexSet));
+  lms->listener_wrote = listener_wrote;
+  lms->calc_read = calc_read;
   lms->batch_stock_mu = batch_stock_mu;
   lms->calc_batch_mu = calc_batch_mu;
   lms->io_mu = io_mu;
@@ -128,14 +132,23 @@ void receive_packet(int sd, char *buf, struct sockaddr_in *remote_addr,
     }
 }
 
+// TODO: DRY!
 void do_first_run(ListenerPack *lp, char *buf, 
                   struct sockaddr_in *remote_addr) {
   receive_packet(lp->sd, buf, remote_addr, lp->type);
-  pthread_mutex_unlock(lp->mu_set->batch_stock_mu);
+  Packet *received_pack = bytes_to_pack(buf);
+  store_batch(received_pack, lp->batch_stock, lp->type);
+  free_pack(received_pack);
+  signal_ready(lp);
 }
 
 void wait_unitl_calc_reads(ListenerPack *lp) {
   pthread_mutex_lock(lp->mu_set->calc_batch_mu);
+  pthread_cond_wait(lp->mu_set->calc_read, lp->mu_set->calc_batch_mu);
   pthread_mutex_lock(lp->mu_set->batch_stock_mu);
-  pthread_cond_signal();
+}
+
+void signal_ready(ListenerPack *lp) {
+  pthread_mutex_unlock(lp->mu_set->batch_stock_mu);
+  pthread_mutex_lock(lp->mu_set->batch_stock_mu);  
 }

@@ -48,6 +48,9 @@ int start_listener(listener_t type, pthread_cond_t *calc_read,
 void create_sender();
 void spawn_workers();
 void lock_mutexes();
+void wait_listeners_write();
+void read_batches();
+void signal_read();
 
 // End of static functions declarations
 
@@ -58,7 +61,9 @@ int main(int argc, char **argv) {
   spawn_workers();
    
   while(1) {
-    
+    wait_listeners_write();
+    read_batches();
+    signal_read();     
   }
 
   tear_down();
@@ -188,6 +193,19 @@ void *run_listener_callback(void *lp) {
 }
 
 void lock_mutexes() {
+}
+
+void wait_listeners_write() {
+  pthread_mutex_lock(batch_stock_first_mu);
+  pthread_mutex_lock(batch_stock_second_mu);
+  pthread_mutex_unlock(batch_stock_first_mu);
+  pthread_mutex_unlock(batch_stock_second_mu);
+}
+
+void signal_read() {
   pthread_mutex_lock(calc_batch_first_mu);
   pthread_mutex_lock(calc_batch_second_mu);
+  pthread_mutex_unlock(calc_batch_first_mu);
+  pthread_mutex_unlock(calc_batch_second_mu);
+  pthread_cond_signal(calc_read_cond);
 }
