@@ -16,27 +16,30 @@ struct sockaddr_in *initialize_remote_sockaddr();
 void listener_error_exit(char *msg);
 char *get_listener_msg(char *msg, int listener_number);
 void listener_error_exit(char *msg);
-void store_batch(Packet *pack, BatchStock *bs, listener_t type);
+void store_batch(Packet *pack, ListenerPack *lp);
 void do_first_run(ListenerPack *lp, char *buf, 
                   struct sockaddr_in *remote_addr);
 void receive_packet(int sd, char *buf, struct sockaddr_in *remote_addr, 
                     listener_t type);
 void wait_until_calc_reads(ListenerPack *lp);
 void signal_ready(ListenerPack *lp);
-Packet *gen_pack();
+Packet *gen_pack(listener_t type);
 
 // End of static functions region
 
 void run_listener(ListenerPack *lp) {
   char *bufin = allocate_buf(); 
   struct sockaddr_in *remote = initialize_remote_sockaddr();
-  do_first_run(lp, bufin, remote);
+  //do_first_run(lp, bufin, remote);
   while(1) {
-    receive_packet(lp->sd, bufin, remote, lp->type); 
-    Packet *received_pack = bytes_to_pack(bufin);
-    wait_until_calc_reads(lp);
-    store_batch(received_pack, lp->batch_stock, lp->type);
+    //receive_packet(lp->sd, bufin, remote, lp->type); 
+    Packet *received_pack = gen_pack(lp->type);//bytes_to_pack(bufin);
+    store_batch(received_pack, lp);
+    char *msg = get_listener_msg("Batch stored\n", lp->type);
+    safe_print(msg, lp->mu_set->io_mu);
+    free(msg);
     signal_ready(lp);
+    wait_until_calc_reads(lp);
   }
 }
 
@@ -57,12 +60,14 @@ void free_listener_pack(ListenerPack *lp) {
 
 ListenerMutexSet *create_listener_mutex_set(pthread_cond_t *calc_read,
             pthread_cond_t *listener_wrote, pthread_mutex_t *batch_stock_mu,
-            pthread_mutex_t *calc_batch_mu, pthread_mutex_t *io_mu) {
+            pthread_mutex_t *calc_batch_mu, 
+            pthread_mutex_t *batch_stock_access_mu,  pthread_mutex_t *io_mu) {
   ListenerMutexSet *lms = (ListenerMutexSet *)malloc(sizeof(ListenerMutexSet));
   lms->listener_wrote = listener_wrote;
   lms->calc_read = calc_read;
   lms->batch_stock_mu = batch_stock_mu;
   lms->calc_batch_mu = calc_batch_mu;
+  lms->batch_stock_access_mu = batch_stock_access_mu;
   lms->io_mu = io_mu;
   return lms;
 }
@@ -102,20 +107,25 @@ char *get_listener_msg(char *msg, int listener_number) {
   return result;
 }
 
-void store_batch(Packet *pack, BatchStock *bs, listener_t type) {
+// TODO: DRY!
+void store_batch(Packet *pack, ListenerPack *lp) {
   float *payload = get_floats(pack);
   size_t count = get_floats_count(pack);
   char *err_msg;
-  switch (type) {
+  switch (lp->type) {
     case LISTENER_FIRST:
-      add_first_stock_to_batch(bs, payload, count);
+      pthread_mutex_lock(lp->mu_set->batch_stock_access_mu);
+      add_first_stock_to_batch(lp->batch_stock, payload, count);
+      pthread_mutex_unlock(lp->mu_set->batch_stock_access_mu);
       break;
     case LISTENER_SECOND:
-      add_second_stock_to_batch(bs, payload, count);
+      pthread_mutex_lock(lp->mu_set->batch_stock_access_mu);
+      add_second_stock_to_batch(lp->batch_stock, payload, count);
+      pthread_mutex_unlock(lp->mu_set->batch_stock_access_mu);
       break;
     default:
       err_msg = 
-          get_listener_msg("Cannot store batch: packet type unknown", type);
+        get_listener_msg("Cannot store batch: packet type unknown", lp->type);
       listener_error_exit(err_msg);
   }
   return; 
@@ -138,31 +148,32 @@ void do_first_run(ListenerPack *lp, char *buf,
                   struct sockaddr_in *remote_addr) {
   //receive_packet(lp->sd, buf, remote_addr, lp->type);
   Packet *received_pack = gen_pack(lp->type);//bytes_to_pack(buf);
-  store_batch(received_pack, lp->batch_stock, lp->type);
+  store_batch(received_pack, lp);
   free_pack(received_pack);
-  char *msg = get_listener_msg("Batch stored", lp->type);
-  printf("%s\n", msg);
+  char *msg = get_listener_msg("Batch stored\n", lp->type);
+  safe_print(msg, lp->mu_set->io_mu);
   free(msg);
   signal_ready(lp);
+
 }
 
 void wait_until_calc_reads(ListenerPack *lp) {
   pthread_mutex_lock(lp->mu_set->calc_batch_mu);
   pthread_cond_wait(lp->mu_set->calc_read, lp->mu_set->calc_batch_mu);
-  pthread_mutex_lock(lp->mu_set->batch_stock_mu);
+  pthread_mutex_lock(lp->mu_set->batch_stock_mu);  
+  pthread_mutex_unlock(lp->mu_set->calc_batch_mu);
 }
 
 void signal_ready(ListenerPack *lp) {
   pthread_mutex_unlock(lp->mu_set->batch_stock_mu);
-  pthread_mutex_lock(lp->mu_set->batch_stock_mu);  
 }
 
-Packet *gen_pack(int incr) {
+Packet *gen_pack(listener_t type) {
   size_t floats_count = 4;
   float buf[floats_count];
   float base = 1.1111;
   for (int i = 0; i < floats_count; i++) {
-    buf[i] = base + (float) i + incr;
+    buf[i] = base + (float) i + (float) type;
   }
   Packet *pack = gen_packet_from_floats(buf, floats_count);
   return pack;
