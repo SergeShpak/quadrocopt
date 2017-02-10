@@ -1,6 +1,6 @@
 #include <stdlib.h>
 
-#include "include/data_struct.h"
+#include "include/network_interactions.h"
 #include "include/constants.h"
 #include "include/nrutil.h"
 
@@ -27,10 +27,10 @@ const float L0psy = 125;
 const float L1psy = 125;
 
 
-float *calculate_ordinary(packet *pack);
+float *calculate_ordinary(Packet *pack);
 float *server_calculations(float *params);
 
-float *calculate(packet *pack) {
+float *calculate(Packet *pack) {
   float *result;
   switch (pack->type) {
     case PACK_OF_FLOATS:
@@ -42,7 +42,7 @@ float *calculate(packet *pack) {
   return result;
 }
 
-float *calculate_ordinary(packet *pack) {
+float *calculate_ordinary(Packet *pack) {
   float *params = get_floats(pack);
   float *output = server_calculations(params);
   free(params);

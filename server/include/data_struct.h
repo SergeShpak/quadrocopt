@@ -3,24 +3,18 @@
 
 #include <stddef.h>
 
-typedef enum _packet_t {
-  PACK_OF_FLOATS,
-  INIT_PACK
-} packet_t;
+typedef struct _BatchStock {
+  float *first_batch;
+  size_t first_batch_len;
+  float *second_batch;
+  size_t second_batch_len;
+} BatchStock;
 
-typedef struct _packet {
-  packet_t type;
-  unsigned int length;
-  char *buf;
-} packet;
-
-packet *gen_packet_from_floats(float *buf, size_t len);
-packet *gen_init_pack(float *buf, size_t len);
-char *pack_to_bytes(packet *pack);
-size_t get_pack_bytes_size(packet *pack);
-packet *bytes_to_pack(char *ca);
-float *get_floats(packet*);
-void free_pack(packet* pack_to_free);
-size_t get_floats_count(packet *pack);
+BatchStock *initialize_batch_stock();
+void add_first_stock_to_batch(BatchStock *bs, float *batch, size_t batch_len);
+void add_second_stock_to_batch(BatchStock *bs, float *batch, size_t batch_len);
+float *get_first_stock_from_batch(BatchStock *bs, size_t *batch_len);
+float *get_second_stock_from_batch(BatchStock *bs, size_t *batch_len);
+void free_batch_stock(BatchStock *bs);
 
 #endif

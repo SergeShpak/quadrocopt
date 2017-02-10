@@ -1,11 +1,12 @@
 CC=gcc
 CFLAGS=-c -Wall -g
-LINK_FLAGS=-lm
+LINK_FLAGS=-lm -pthread
 OUT=server
-OBJ=echoServerUDP.o io_stuff.o data_struct.o calculate.o nrutil.o
+OBJ=main.o io_stuff.o data_struct.o calculate.o nrutil.o network_interactions.o utils.o listener.o
 PREF_OBJ=$(addprefix $(BUILD_FOLDER)/, $(OBJ))
 BUILD_FOLDER=build
 BIN_FOLDER=bin
+LOG_FILE=log
 
 all: post-build
 
@@ -29,3 +30,4 @@ res: $(OBJ)
 clean:
 	-rm -rf $(BUILD_FOLDER)
 	-rm -rf $(BIN_FOLDER)
+	-rm -f $(LOG_FILE)
