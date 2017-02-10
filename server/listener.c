@@ -23,6 +23,7 @@ void receive_packet(int sd, char *buf, struct sockaddr_in *remote_addr,
                     listener_t type);
 void wait_until_calc_reads(ListenerPack *lp);
 void signal_ready(ListenerPack *lp);
+Packet *gen_pack();
 
 // End of static functions region
 
@@ -135,14 +136,17 @@ void receive_packet(int sd, char *buf, struct sockaddr_in *remote_addr,
 // TODO: DRY!
 void do_first_run(ListenerPack *lp, char *buf, 
                   struct sockaddr_in *remote_addr) {
-  receive_packet(lp->sd, buf, remote_addr, lp->type);
-  Packet *received_pack = bytes_to_pack(buf);
+  //receive_packet(lp->sd, buf, remote_addr, lp->type);
+  Packet *received_pack = gen_pack(lp->type);//bytes_to_pack(buf);
   store_batch(received_pack, lp->batch_stock, lp->type);
   free_pack(received_pack);
+  char *msg = get_listener_msg("Batch stored", lp->type);
+  printf("%s\n", msg);
+  free(msg);
   signal_ready(lp);
 }
 
-void wait_unitl_calc_reads(ListenerPack *lp) {
+void wait_until_calc_reads(ListenerPack *lp) {
   pthread_mutex_lock(lp->mu_set->calc_batch_mu);
   pthread_cond_wait(lp->mu_set->calc_read, lp->mu_set->calc_batch_mu);
   pthread_mutex_lock(lp->mu_set->batch_stock_mu);
@@ -151,4 +155,15 @@ void wait_unitl_calc_reads(ListenerPack *lp) {
 void signal_ready(ListenerPack *lp) {
   pthread_mutex_unlock(lp->mu_set->batch_stock_mu);
   pthread_mutex_lock(lp->mu_set->batch_stock_mu);  
+}
+
+Packet *gen_pack(int incr) {
+  size_t floats_count = 4;
+  float buf[floats_count];
+  float base = 1.1111;
+  for (int i = 0; i < floats_count; i++) {
+    buf[i] = base + (float) i + incr;
+  }
+  Packet *pack = gen_packet_from_floats(buf, floats_count);
+  return pack;
 }

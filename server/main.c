@@ -89,7 +89,8 @@ void initialize_barriers() {
   pthread_barrierattr_t attr;
   pthread_barrierattr_init(&attr);
   listeners_barrier = (pthread_barrier_t *) malloc(sizeof(pthread_barrier_t));
-  pthread_barrier_init(listeners_barrier, &attr, SERVER_NUMBER_OF_LISTENERS);
+  pthread_barrier_init(listeners_barrier, &attr, 
+                        SERVER_NUMBER_OF_LISTENERS + 1);
 }
 
 void initialize_condition_vars() {
@@ -149,12 +150,13 @@ void create_listeners() {
   if (status) {
     exit_error("Could not start the second listener");
   }
-  // MUTEX: listeners_count_mutex
-  // waiting while all listeners lock batch store mutex
-  pthread_mutex_lock(&listeners_count_mutex);
-  pthread_cond_wait(&all_listeners_ready, &listeners_count_mutex);
-  pthread_mutex_unlock(&listeners_count_mutex);
-  // MUTEX UNLOCKED: listeners_count_mutex
+  pthread_barrier_wait(listeners_barrier);
+//  // MUTEX: listeners_count_mutex
+//  // waiting while all listeners lock batch store mutex
+//  pthread_mutex_lock(&listeners_count_mutex);
+//  pthread_cond_wait(&all_listeners_ready, &listeners_count_mutex);
+//  pthread_mutex_unlock(&listeners_count_mutex);
+//  // MUTEX UNLOCKED: listeners_count_mutex
 }
 
 int start_listener(listener_t type, pthread_cond_t *calc_read, 
@@ -177,16 +179,17 @@ void create_sender() {
 
 void *run_listener_callback(void *lp) {
   ListenerPack *listener_pack = (ListenerPack *) lp;
-  pthread_mutex_lock(listener_pack->mu_set->batch_stock_mu);
-  // MUTEX: listeners_count_mutex
-  // incrementing the number of activated listeners
-  pthread_mutex_lock(&listeners_count_mutex);
-  if (SERVER_NUMBER_OF_LISTENERS - 1 == listeners_count) {
-    pthread_cond_signal(&all_listeners_ready);
-  }
-  listeners_count++;
-  pthread_mutex_unlock(&listeners_count_mutex);
-  // MUTEX UNLOCKED: listeners_count_mutex
+  pthread_barrier_wait(listeners_barrier);
+  //pthread_mutex_lock(listener_pack->mu_set->batch_stock_mu);
+//  // MUTEX: listeners_count_mutex
+//  // incrementing the number of activated listeners
+//  pthread_mutex_lock(&listeners_count_mutex);
+//  if (SERVER_NUMBER_OF_LISTENERS - 1 == listeners_count) {
+//    pthread_cond_signal(&all_listeners_ready);
+//  }
+//  listeners_count++;
+//  pthread_mutex_unlock(&listeners_count_mutex);
+//  // MUTEX UNLOCKED: listeners_count_mutex
   
   run_listener((ListenerPack *) lp);
   return NULL;
@@ -208,4 +211,21 @@ void signal_read() {
   pthread_mutex_unlock(calc_batch_first_mu);
   pthread_mutex_unlock(calc_batch_second_mu);
   pthread_cond_signal(calc_read_cond);
+}
+
+void read_batches() {
+  size_t first_batch_len;
+  float *first_batch = get_first_stock_from_batch(bs, &first_batch_len);
+  size_t second_batch_len;
+  float *second_batch = get_second_stock_from_batch(bs, &second_batch_len);  
+  printf("First batch: ");
+  for (int i = 0; i < first_batch_len; i++) {
+    printf("%f ", first_batch[i]);
+  }
+  printf("\nSecond batch: ");
+  for(int i = 0; i < second_batch_len; i++) {
+    printf("%f ", second_batch[i]);
+  }
+  free(first_batch);
+  free(second_batch);
 }

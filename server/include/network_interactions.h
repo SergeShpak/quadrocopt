@@ -67,7 +67,7 @@ typedef struct _Packet {
   char *buf;
 } Packet;
 
-Packet *gen_Packet_from_floats(float *buf, size_t len);
+Packet *gen_packet_from_floats(float *buf, size_t len);
 Packet *gen_init_pack(float *buf, size_t len);
 char *pack_to_bytes(Packet *pack);
 size_t get_pack_bytes_size(Packet *pack);
