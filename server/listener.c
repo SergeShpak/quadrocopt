@@ -8,6 +8,7 @@
 #include "include/listener.h"
 #include "include/constants.h"
 #include "include/utils.h"
+#include "include/threading_stuff.h"
 
 // Static functions
 
@@ -29,28 +30,31 @@ Packet *gen_pack(listener_t type);
 
 void run_listener(ListenerPack *lp) {
   char *bufin = allocate_buf(); 
+  char *msg;
   struct sockaddr_in *remote = initialize_remote_sockaddr();
-  //do_first_run(lp, bufin, remote);
+  do_first_run(lp, bufin, remote);
   while(1) {
     //receive_packet(lp->sd, bufin, remote, lp->type); 
     Packet *received_pack = gen_pack(lp->type);//bytes_to_pack(bufin);
+    wait_until_calc_reads(lp);
     store_batch(received_pack, lp);
-    char *msg = get_listener_msg("Batch stored\n", lp->type);
+    msg = get_listener_msg("Batch stored\n", lp->type);
     safe_print(msg, lp->mu_set->io_mu);
     free(msg);
     signal_ready(lp);
-    wait_until_calc_reads(lp);
   }
 }
 
 ListenerPack *initialize_listener_pack(listener_t type, int sd, 
-                    ListenerMutexSet *mu_set, BatchStock *bs, FILE *log_file) {
+              ListenerMutexSet *mu_set, ListenerThreadCondPackets *cond_packs, 
+              BatchStock *bs, FILE *log_file) {
   ListenerPack *lp = (ListenerPack *) malloc(sizeof(ListenerPack));
   lp->type = type;
   lp->sd = sd;
   lp->mu_set = mu_set;
   lp->batch_stock = bs;
   lp->log_file = log_file;
+  lp->cond_packs = cond_packs;
   return lp;
 }
 
@@ -58,15 +62,10 @@ void free_listener_pack(ListenerPack *lp) {
   free(lp);
 }
 
-ListenerMutexSet *create_listener_mutex_set(pthread_cond_t *calc_read,
-            pthread_cond_t *listener_wrote, pthread_mutex_t *batch_stock_mu,
-            pthread_mutex_t *calc_batch_mu, 
+ListenerMutexSet *create_listener_mutex_set(pthread_mutex_t *batch_stock_mu,
             pthread_mutex_t *batch_stock_access_mu,  pthread_mutex_t *io_mu) {
   ListenerMutexSet *lms = (ListenerMutexSet *)malloc(sizeof(ListenerMutexSet));
-  lms->listener_wrote = listener_wrote;
-  lms->calc_read = calc_read;
   lms->batch_stock_mu = batch_stock_mu;
-  lms->calc_batch_mu = calc_batch_mu;
   lms->batch_stock_access_mu = batch_stock_access_mu;
   lms->io_mu = io_mu;
   return lms;
@@ -74,6 +73,16 @@ ListenerMutexSet *create_listener_mutex_set(pthread_cond_t *calc_read,
 
 void free_listener_mutex_set(ListenerMutexSet *mu_set) {
   free(mu_set);
+}
+
+ListenerThreadCondPackets *initialize_cond_packs(
+                              ThreadConditionPack *calc_read_cond, 
+                              ThreadConditionPack *calc_ready_condition_pack) {
+  ListenerThreadCondPackets *cond_packs = 
+      (ListenerThreadCondPackets *) malloc(sizeof(ListenerThreadCondPackets));
+  cond_packs->calc_read_cond = calc_read_cond;
+  cond_packs->calc_ready_condition_pack = calc_ready_condition_pack;
+  return cond_packs;
 }
 
 char *allocate_buf() {
@@ -149,23 +158,29 @@ void do_first_run(ListenerPack *lp, char *buf,
   //receive_packet(lp->sd, buf, remote_addr, lp->type);
   Packet *received_pack = gen_pack(lp->type);//bytes_to_pack(buf);
   store_batch(received_pack, lp);
-  free_pack(received_pack);
+  //free_pack(received_pack);
   char *msg = get_listener_msg("Batch stored\n", lp->type);
   safe_print(msg, lp->mu_set->io_mu);
   free(msg);
   signal_ready(lp);
-
 }
 
 void wait_until_calc_reads(ListenerPack *lp) {
-  pthread_mutex_lock(lp->mu_set->calc_batch_mu);
-  pthread_cond_wait(lp->mu_set->calc_read, lp->mu_set->calc_batch_mu);
-  pthread_mutex_lock(lp->mu_set->batch_stock_mu);  
-  pthread_mutex_unlock(lp->mu_set->calc_batch_mu);
+  while(!(lp->cond_packs->calc_ready_condition_pack->cond_to_verify)) {
+    pthread_cond_wait(lp->cond_packs->calc_ready_condition_pack->cond_var,
+                      lp->cond_packs->calc_ready_condition_pack->mutex_to_use);
+  }
+  set_cond_to_verify_to_false(lp->cond_packs->calc_ready_condition_pack);
 }
 
 void signal_ready(ListenerPack *lp) {
   pthread_mutex_unlock(lp->mu_set->batch_stock_mu);
+  while (!(lp->cond_packs->calc_read_cond->cond_to_verify)) {
+    pthread_cond_wait(lp->cond_packs->calc_read_cond->cond_var,
+                      lp->cond_packs->calc_read_cond->mutex_to_use);
+  }
+  set_cond_to_verify_to_false(lp->cond_packs->calc_read_cond);
+  pthread_mutex_lock(lp->mu_set->batch_stock_mu);
 }
 
 Packet *gen_pack(listener_t type) {
