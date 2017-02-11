@@ -5,8 +5,10 @@
 #include <pthread.h>
 
 #include "network_interactions.h"
+#include "threading_stuff.h"
 
 typedef struct _ListenerMutexSet ListenerMutexSet;
+typedef struct _ListenerThreadCondPackets ListenerThreadCondPackets;
 typedef struct _ListenerPack ListenerPack;
 typedef enum _listener_t listener_t;
 
@@ -21,23 +23,30 @@ struct _ListenerPack {
   FILE *log_file;
   ListenerMutexSet *mu_set;
   BatchStock *batch_stock;
+  ListenerThreadCondPackets *cond_packs;
 };
 
 struct _ListenerMutexSet {
-  pthread_cond_t *calc_read;
-  pthread_cond_t *listener_wrote;
   pthread_mutex_t *batch_stock_mu;
-  pthread_mutex_t *calc_batch_mu;
-  pthread_mutex_t *io_mu; 
   pthread_mutex_t *batch_stock_access_mu;
+  pthread_mutex_t *io_mu; 
+};
+
+struct _ListenerThreadCondPackets {
+  ThreadConditionPack *calc_read_cond;
+  ThreadConditionPack *calc_ready_condition_pack;
 };
 
 ListenerPack *initialize_listener_pack(listener_t type, int sd, 
-                    ListenerMutexSet *mu_set, BatchStock *bs, FILE *log_file);
+                    ListenerMutexSet *mu_set, 
+                    ListenerThreadCondPackets *thread_cond_packets, 
+                    BatchStock *bs, FILE *log_file);
 
-ListenerMutexSet *create_listener_mutex_set(pthread_cond_t *calc_read, 
-              pthread_cond_t *listener_wrote, pthread_mutex_t *batch_stock_mu,
-              pthread_mutex_t *calc_batch_mu, 
+ListenerThreadCondPackets *initialize_cond_packs(
+                              ThreadConditionPack *cond_pack,
+                              ThreadConditionPack *calc_ready_condition_pack);
+
+ListenerMutexSet *create_listener_mutex_set(pthread_mutex_t *batch_stock_mu,
               pthread_mutex_t *batch_stock_access_mu, pthread_mutex_t *io_mu);
 
 void free_listener_pack(ListenerPack *lp);
