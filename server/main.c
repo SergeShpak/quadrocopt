@@ -70,6 +70,8 @@ int start_sender();
 void create_sender();
 void calculate_res();
 void signal_calculated();
+void wait_for_sender();
+
 // End of static functions declarations
 
 int main(int argc, char **argv) {
@@ -82,7 +84,7 @@ int main(int argc, char **argv) {
     read_batches();
     signal_read();
     calculate_res();
-    signal_calculated(); 
+    signal_calculated();
   }
 
   tear_down();
@@ -120,6 +122,7 @@ void initialize_condition_packs() {
   second_listener_calc_ready = initialize_thread_cond_pack();
   reader_calculated_cond_pack = initialize_thread_cond_pack();
   sender_sent_cond_pack = initialize_thread_cond_pack();
+  set_cond_to_verify_to_true(sender_sent_cond_pack);
 }
 
 ThreadConditionPack *initialize_thread_cond_pack() {
@@ -216,6 +219,7 @@ int start_sender() {
   SenderThreadCondPacks *cond_packs = 
                       initialize_sender_cond_packs(reader_calculated_cond_pack, 
                       sender_sent_cond_pack);
+  set_cond_to_verify_to_true(cond_packs->sender_sent_cond_pack);
   SenderPack *pack = initialize_sender_pack(net_interface->sd_out, cs, mu_set, 
                                             cond_packs);
   pthread_attr_t attr;
@@ -288,7 +292,7 @@ void read_batches() {
 
 void calculate_res() {
   size_t received_data_len = first_batch_len + second_batch_len;
-  float *received_data = (float *) malloc(sizeof(received_data_len));
+  float *received_data = (float *) malloc(sizeof(float) * received_data_len);
   memcpy((void *) received_data, (void *) first_batch, 
           first_batch_len * sizeof(float));
   memcpy((void *)received_data + (sizeof(float) * first_batch_len), 
@@ -297,16 +301,36 @@ void calculate_res() {
   free(received_data);
   float base = 1.1111;
   float *result = (float *) malloc(sizeof(float) * 4);
+  if (counter >= 100) {
+    counter = 0;
+  }
   for (int i = 0; i < 4; i++) {
     result[i] = base + i + counter;
   }
+  add_to_calculations_stock(cs, result, 4); 
   counter++;
   char *res_str = float_arr_to_string(result, 4);
   safe_print(res_str, io_mu);
   free(res_str);
-  calculated = result;  
+  wait_for_sender();
+  calculated = result;
+  signal_calculated();
+  safe_print("Dispatcher: so far, so good\n", io_mu);
 }
 
 void signal_calculated() {
+  pthread_mutex_lock(reader_calculated_cond_pack->mutex_to_use);
+  set_cond_to_verify_to_true(reader_calculated_cond_pack);
+  pthread_cond_signal(reader_calculated_cond_pack->cond_var);
+  pthread_mutex_unlock(reader_calculated_cond_pack->mutex_to_use); 
+}
 
+void wait_for_sender() {
+  pthread_mutex_lock(sender_sent_cond_pack->mutex_to_use);
+  while(!(sender_sent_cond_pack->cond_to_verify)) {
+    pthread_cond_wait(sender_sent_cond_pack->cond_var, 
+                      sender_sent_cond_pack->mutex_to_use); 
+  }
+  set_cond_to_verify_to_false(sender_sent_cond_pack);
+  pthread_mutex_unlock(sender_sent_cond_pack->mutex_to_use);
 }
