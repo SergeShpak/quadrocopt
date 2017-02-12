@@ -87,3 +87,42 @@ void print_pack(Packet *p) {
     printf("%f ", payload[i]);
   }
 }
+
+char *float_arr_to_string(float *arr, size_t arr_len) {
+  if ((NULL == arr) || (0 == arr_len)) {
+    return "";       
+  }
+  char buf[100];
+  size_t total_len = 0;
+  char *float_strings[arr_len];
+  float curr_float;
+  for (int i = 0; i < arr_len; i++) {
+    curr_float = arr[i];
+    snprintf (buf, 100, "%f", curr_float);
+    size_t fl_len = strlen(buf);
+    total_len += (fl_len + 1);
+    char *fl_repr = (char *) malloc(sizeof(char) * (fl_len + 1));
+    memcpy(fl_repr, buf, fl_len);
+    fl_repr[fl_len] = '\0';
+    float_strings[i] = fl_repr;
+  }
+  char *curr_fl_repr;
+  char *result = (char *) malloc(sizeof(char) * total_len);
+  size_t curr_offset = 0;
+  for (int i = 0; i < arr_len; i++) {
+    curr_fl_repr = float_strings[i];
+    size_t fl_len = strlen(curr_fl_repr);
+    memcpy((void *) result + curr_offset, (void *)curr_fl_repr, fl_len);
+    if (i == 3) {
+      i = 3;
+    }
+    result[curr_offset + fl_len] = ' ';
+    curr_offset += fl_len + 1;
+  }
+  result[curr_offset - 1] = '\0';
+  // TODO: why failing when freeing the last element??!
+  for (int i = 0; i < arr_len; i++) {
+    free(float_strings[i]);
+  }
+  return result;
+}

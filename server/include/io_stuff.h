@@ -21,4 +21,6 @@ float *vec_to_floats(float *vec, size_t len);
 
 void print_pack(Packet *p);
 
+char *float_arr_to_string(float *arr, size_t arr_len);
+
 #endif
