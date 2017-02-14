@@ -72,7 +72,7 @@ ClientAddress *initialize_client_address() {
 }
 
 ClientAddress *set_client_address(ClientAddress *client_addr, 
-                                  struct sockaddr *addr, socklen_t addr_len) {
+                                struct sockaddr *addr, socklen_t addr_len) {
   client_addr->addr = addr;
   client_addr->addr_len = addr_len;
   return client_addr;
@@ -225,6 +225,9 @@ void free_pack(Packet *pack) {
 int are_sockaddrs_equal(struct sockaddr *first, struct sockaddr *second) {
   if (first == second) {
     return 1;
+  }
+  if (NULL == first || NULL == second) {
+    return 0;
   }
   if (first->sa_family != second->sa_family) {
     return 0;

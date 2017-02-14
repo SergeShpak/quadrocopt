@@ -38,7 +38,8 @@ void send_calcs(SenderPack *sp) {
   char *pack_bytes = pack_to_bytes(pack);
   size_t pack_size = get_pack_bytes_size(pack);
   pthread_mutex_lock(sp->mu_set->client_addr_mu);
-  struct sockaddr *addr = copy_sockaddr(sp->client_addr->addr);
+  struct sockaddr *addr = 
+                  copy_sockaddr((struct sockaddr *)sp->client_addr->addr);
   size_t addr_len = sp->client_addr->addr_len;
   pthread_mutex_unlock(sp->mu_set->client_addr_mu);
   int bytes_sent = sendto(sp->sd, pack_bytes, pack_size, 0, addr, addr_len); 

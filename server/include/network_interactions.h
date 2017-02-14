@@ -63,7 +63,7 @@ struct _ClientAddress {
 
 ClientAddress *initialize_client_address();
 ClientAddress *set_client_address(ClientAddress *client_addr, 
-                                  struct sockaddr *addr, socklen_t addr_len);
+                                struct sockaddr *addr, socklen_t addr_len);
 void free_client_address(ClientAddress *addr);
 
 /******************************************************************************

@@ -83,6 +83,7 @@ int main(int argc, char **argv) {
 
   while(1) {
     wait_listeners_write();
+    safe_print("Well, hello\n", io_mu);
     read_batches();
     signal_read();
     calculate_res();

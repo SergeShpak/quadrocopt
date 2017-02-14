@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <errno.h>
 
 #include "include/listener.h"
 #include "include/constants.h"
@@ -134,18 +135,23 @@ void store_batch(Packet *pack, ListenerPack *lp) {
 
 void receive_packet(ListenerPack *lp, char *buf) {
   int bytes_recv;
-  struct sockaddr *remote_addr = 
-                          (struct sockaddr *) malloc(sizeof(struct sockaddr));
+  struct sockaddr_in remote; 
   socklen_t addr_len;
   bytes_recv = recvfrom(lp->sd, buf, MAXBUF, 0, 
-                                  (struct sockaddr *) remote_addr, &addr_len);
+                        (struct sockaddr *)&remote, &addr_len);
   if (bytes_recv < 0) {
-      char *err_msg = get_listener_msg("Error receiving data", lp->type);
-      listener_error_exit(err_msg);
+      char *err_msg = get_listener_msg("Error receiving data: ", lp->type);
+      safe_print(err_msg, lp->mu_set->io_mu);
+      pthread_mutex_lock(lp->mu_set->io_mu);
+      printf("%d", errno);
+      pthread_mutex_unlock(lp->mu_set->io_mu);
+      listener_error_exit("\n");
   }
   pthread_mutex_lock(lp->mu_set->client_addr_mu);
-  if (!(are_sockaddrs_equal(lp->client_addr->addr, remote_addr))) {
-    set_client_address(lp->client_addr, remote_addr, addr_len); 
+  if (!(are_sockaddrs_equal((struct sockaddr *) lp->client_addr->addr, 
+                            (struct sockaddr *) &remote))) {
+    struct sockaddr *allocated_addr = copy_sockaddr(&remote);
+    set_client_address(lp->client_addr, allocated_addr, addr_len); 
   }
   pthread_mutex_unlock(lp->mu_set->client_addr_mu);
 }
