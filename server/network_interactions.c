@@ -32,6 +32,7 @@ NetworkInterface *initialize_network_interface() {
                 &(interf->skaddr_in_second), &(interf->sd_in_second));
   bind_sockaddr(SERVER_OUT_PORT,
                 &(interf->skaddr_out), &(interf->sd_out));
+  interf->client_addr = initialize_client_address();
   return interf;
 }
 
@@ -45,6 +46,8 @@ void bind_sockaddr(int port, struct sockaddr_in *skaddr, int *sd) {
   }
 }
 
+
+
 void free_network_interface(NetworkInterface *ni) {
   if (NULL == ni) {
     return;
@@ -54,6 +57,33 @@ void free_network_interface(NetworkInterface *ni) {
 
 /******************************************************************************
 **  End of NetworkInterface structure region  *********************************
+******************************************************************************/
+
+
+/******************************************************************************
+**  ClientAddress structure ***************************************************
+******************************************************************************/
+
+ClientAddress *initialize_client_address() {
+  ClientAddress *addr = (ClientAddress *) malloc(sizeof(ClientAddress));
+  addr->addr = NULL;
+  addr->addr_len = 0;
+  return addr;
+}
+
+ClientAddress *set_client_address(ClientAddress *client_addr, 
+                                  struct sockaddr *addr, socklen_t addr_len) {
+  client_addr->addr = addr;
+  client_addr->addr_len = addr_len;
+  return client_addr;
+}
+
+void free_client_address(ClientAddress *addr) {
+  free(addr);
+}
+
+/******************************************************************************
+**  End of ClientAddress structure region  ************************************
 ******************************************************************************/
 
 
@@ -191,3 +221,29 @@ void free_pack(Packet *pack) {
 /******************************************************************************
 **  End of Packet structure region  *******************************************
 ******************************************************************************/
+
+int are_sockaddrs_equal(struct sockaddr *first, struct sockaddr *second) {
+  if (first == second) {
+    return 1;
+  }
+  if (first->sa_family != second->sa_family) {
+    return 0;
+  }
+  for (int i = 0; i < 14; i++) {
+    if ((first->sa_data)[i] != (second->sa_data)[i]) {
+      return 0;
+    }
+  }
+  return 1;
+}
+
+struct sockaddr *copy_sockaddr(struct sockaddr *src) {
+  struct sockaddr *new_sockaddr = 
+                          (struct sockaddr *) malloc(sizeof(struct sockaddr));
+  new_sockaddr->sa_family = src->sa_family;
+  int i;
+  for (i = 0; i < 14; i++) {
+    (new_sockaddr->sa_data)[i] = (src->sa_data)[i];
+  }
+  return new_sockaddr;
+}

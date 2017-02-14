@@ -20,7 +20,7 @@ enum _listener_t {
 struct _ListenerPack {
   listener_t type;
   int sd;
-  FILE *log_file;
+  ClientAddress *client_addr;
   ListenerMutexSet *mu_set;
   BatchStock *batch_stock;
   ListenerThreadCondPackets *cond_packs;
@@ -29,6 +29,7 @@ struct _ListenerPack {
 struct _ListenerMutexSet {
   pthread_mutex_t *batch_stock_mu;
   pthread_mutex_t *batch_stock_access_mu;
+  pthread_mutex_t *client_addr_mu;
   pthread_mutex_t *io_mu; 
 };
 
@@ -38,16 +39,17 @@ struct _ListenerThreadCondPackets {
 };
 
 ListenerPack *initialize_listener_pack(listener_t type, int sd, 
-                    ListenerMutexSet *mu_set, 
-                    ListenerThreadCondPackets *thread_cond_packets, 
-                    BatchStock *bs, FILE *log_file);
+                        ClientAddress *client_addr, ListenerMutexSet *mu_set, 
+                        ListenerThreadCondPackets *thread_cond_packets, 
+                        BatchStock *bs);
 
 ListenerThreadCondPackets *initialize_cond_packs(
                               ThreadConditionPack *cond_pack,
                               ThreadConditionPack *calc_ready_condition_pack);
 
 ListenerMutexSet *create_listener_mutex_set(pthread_mutex_t *batch_stock_mu,
-              pthread_mutex_t *batch_stock_access_mu, pthread_mutex_t *io_mu);
+                    pthread_mutex_t *batch_stock_access_mu,
+                    pthread_mutex_t *client_addr_mu, pthread_mutex_t *io_mu);
 
 void free_listener_pack(ListenerPack *lp);
 void free_listener_mutex_set(ListenerMutexSet *mu_set);
