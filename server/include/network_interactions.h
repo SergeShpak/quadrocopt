@@ -7,6 +7,11 @@
 
 #include "data_struct.h"
 
+typedef struct _NetworkInterface NetworkInterface;
+typedef struct _Packet Packet;
+typedef enum _packet_t packet_t;
+typedef struct _ClientAddress ClientAddress;
+
 /******************************************************************************
 **  NetworkInterface structure  ***********************************************
 ******************************************************************************/
@@ -18,14 +23,15 @@
  * two listeners and sender. Sockets are bound to ports deined in 
  * ./include/constants.h.
  */
-typedef struct _NetworkInterface {
+struct _NetworkInterface {
   int sd_in_first;
   int sd_in_second;
   int sd_out;
   struct sockaddr_in skaddr_in_first;
   struct sockaddr_in skaddr_in_second;
   struct sockaddr_in skaddr_out;
-} NetworkInterface;
+  ClientAddress *client_addr;
+};
 
 /**
  * @brief Constructor for \ref NetworkInterface structure.
@@ -50,22 +56,42 @@ void free_network_interface(NetworkInterface *ni);
 **  End of NetworkInterface structure region  *********************************
 ******************************************************************************/
 
+struct _ClientAddress {
+  struct sockaddr *addr;
+  socklen_t addr_len;
+};
+
+ClientAddress *initialize_client_address();
+ClientAddress *set_client_address(ClientAddress *client_addr, 
+                                struct sockaddr *addr, socklen_t addr_len);
+void free_client_address(ClientAddress *addr);
+
+/******************************************************************************
+**  ClientAddress structure ***************************************************
+******************************************************************************/
+
+
+
+/******************************************************************************
+**  End of ClientAddress structure region *************************************
+******************************************************************************/
+
 
 /******************************************************************************
 **  Packet structure **********************************************************
 ******************************************************************************/
 
 // TODO: description
-typedef enum _packet_t {
+enum _packet_t {
   PACK_OF_FLOATS,
   INIT_PACK
-} packet_t;
+};
 
-typedef struct _Packet {
+struct _Packet {
   packet_t type;
   unsigned int length;
   char *buf;
-} Packet;
+};
 
 Packet *gen_packet_from_floats(float *buf, size_t len);
 Packet *gen_init_pack(float *buf, size_t len);
@@ -79,5 +105,8 @@ size_t get_floats_count(Packet *pack);
 /******************************************************************************
 **  End of Packet structure region  *******************************************
 ******************************************************************************/
+
+int are_sockaddrs_equal(struct sockaddr *first, struct sockaddr *second);
+struct sockaddr *copy_sockaddr(struct sockaddr *src);
 
 #endif

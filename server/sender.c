@@ -2,10 +2,12 @@
 
 #include "include/sender.h"
 
-SenderPack *initialize_sender_pack(int sd, CalculationsStock *cs, 
-                  SenderMutexSet *mu_set, SenderThreadCondPacks *cond_packs) {
+SenderPack *initialize_sender_pack(int sd, ClientAddress *client_addr, 
+                                CalculationsStock *cs, SenderMutexSet *mu_set, 
+                                          SenderThreadCondPacks *cond_packs) {
   SenderPack *pack = (SenderPack *) malloc(sizeof(SenderPack));
   pack->sd = sd;
+  pack->client_addr = client_addr;
   pack->cs = cs;
   pack->mu_set = mu_set;
   pack->cond_packs = cond_packs;
@@ -16,8 +18,10 @@ void free_sender_pack(SenderPack *sp) {
   free(sp);
 }
 
-SenderMutexSet *initialize_sender_mutex_set(pthread_mutex_t *io_mu) {
+SenderMutexSet *initialize_sender_mutex_set(pthread_mutex_t *client_addr_mu,
+                                                     pthread_mutex_t *io_mu) {
   SenderMutexSet *mu_set = (SenderMutexSet *) malloc(sizeof(SenderMutexSet)); 
+  mu_set->client_addr_mu = client_addr_mu;
   mu_set->io_mu = io_mu;
   return mu_set;
 }

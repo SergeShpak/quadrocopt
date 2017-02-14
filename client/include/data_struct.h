@@ -3,24 +3,18 @@
 
 #include <stddef.h>
 
-typedef enum _packet_t {
-  PACK_OF_FLOATS,
-  INIT_PACK
-} packet_t;
+typedef struct _CalculationsStock CalculationsStock;
 
-typedef struct _packet {
-  packet_t type;
-  unsigned int length;
-  char *buf;
-} packet;
+struct _CalculationsStock {
+  float *calculations;
+  size_t calculations_len;
+};
 
-packet *gen_packet_from_floats(float *buf, size_t len);
-packet *gen_init_pack(float *buf, size_t len);
-char *pack_to_bytes(packet *pack);
-size_t get_pack_bytes_size(packet *pack);
-packet *bytes_to_pack(char *ca);
-float *get_floats(packet* pack);
-size_t get_floats_count(packet *pack);
-void free_pack(packet *pack);
+CalculationsStock *initialize_calculations_stock();
+void add_to_calculations_stock(CalculationsStock *cs,
+          float *calcs, size_t calcs_len);
+float *get_calculations_from_stock(CalculationsStock *cs, size_t *calcs_len);
+void clean_calculations_stock(CalculationsStock *cs);
+void free_calculations_stock(CalculationsStock *cs);
 
 #endif

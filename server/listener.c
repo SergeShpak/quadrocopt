@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <errno.h>
 
 #include "include/listener.h"
 #include "include/constants.h"
@@ -13,15 +14,12 @@
 // Static functions
 
 char *allocate_buf();
-struct sockaddr_in *initialize_remote_sockaddr();
 void listener_error_exit(char *msg);
 char *get_listener_msg(char *msg, int listener_number);
 void listener_error_exit(char *msg);
 void store_batch(Packet *pack, ListenerPack *lp);
-void do_first_run(ListenerPack *lp, char *buf, 
-                  struct sockaddr_in *remote_addr);
-void receive_packet(int sd, char *buf, struct sockaddr_in *remote_addr, 
-                    listener_t type);
+void do_first_run(ListenerPack *lp, char *buf);
+void receive_packet(ListenerPack *lp, char *buf);
 void wait_until_calc_reads(ListenerPack *lp);
 void signal_ready(ListenerPack *lp);
 Packet *gen_pack(listener_t type);
@@ -31,11 +29,10 @@ Packet *gen_pack(listener_t type);
 void run_listener(ListenerPack *lp) {
   char *bufin = allocate_buf(); 
   char *msg;
-  struct sockaddr_in *remote = initialize_remote_sockaddr();
-  do_first_run(lp, bufin, remote);
+  do_first_run(lp, bufin);
   while(1) {
-    //receive_packet(lp->sd, bufin, remote, lp->type); 
-    Packet *received_pack = gen_pack(lp->type);//bytes_to_pack(bufin);
+    receive_packet(lp, bufin); 
+    Packet *received_pack = bytes_to_pack(bufin);
     wait_until_calc_reads(lp);
     store_batch(received_pack, lp);
     msg = get_listener_msg("Batch stored\n", lp->type);
@@ -46,14 +43,14 @@ void run_listener(ListenerPack *lp) {
 }
 
 ListenerPack *initialize_listener_pack(listener_t type, int sd, 
-              ListenerMutexSet *mu_set, ListenerThreadCondPackets *cond_packs, 
-              BatchStock *bs, FILE *log_file) {
+                      ClientAddress *client_addr, ListenerMutexSet *mu_set, 
+                      ListenerThreadCondPackets *cond_packs, BatchStock *bs) {
   ListenerPack *lp = (ListenerPack *) malloc(sizeof(ListenerPack));
   lp->type = type;
   lp->sd = sd;
+  lp->client_addr = client_addr;
   lp->mu_set = mu_set;
   lp->batch_stock = bs;
-  lp->log_file = log_file;
   lp->cond_packs = cond_packs;
   return lp;
 }
@@ -63,10 +60,12 @@ void free_listener_pack(ListenerPack *lp) {
 }
 
 ListenerMutexSet *create_listener_mutex_set(pthread_mutex_t *batch_stock_mu,
-            pthread_mutex_t *batch_stock_access_mu,  pthread_mutex_t *io_mu) {
+                    pthread_mutex_t *batch_stock_access_mu, 
+                    pthread_mutex_t *client_addr_mu, pthread_mutex_t *io_mu) {
   ListenerMutexSet *lms = (ListenerMutexSet *)malloc(sizeof(ListenerMutexSet));
   lms->batch_stock_mu = batch_stock_mu;
   lms->batch_stock_access_mu = batch_stock_access_mu;
+  lms->client_addr_mu = client_addr_mu;
   lms->io_mu = io_mu;
   return lms;
 }
@@ -88,12 +87,6 @@ ListenerThreadCondPackets *initialize_cond_packs(
 char *allocate_buf() {
   char *buf = (char*) malloc(sizeof(char) * MAXBUF);
   return buf;
-}
-
-struct sockaddr_in *initialize_remote_sockaddr() {
-  struct sockaddr_in *remote_sockaddr = 
-            (struct sockaddr_in *) malloc(sizeof(struct sockaddr_in));
-  return remote_sockaddr;
 }
 
 void listener_error_exit(char *msg) {
@@ -140,25 +133,35 @@ void store_batch(Packet *pack, ListenerPack *lp) {
   return; 
 }
 
-void receive_packet(int sd, char *buf, struct sockaddr_in *remote_addr, 
-                    listener_t type) {
+void receive_packet(ListenerPack *lp, char *buf) {
   int bytes_recv;
+  struct sockaddr_in remote; 
   socklen_t addr_len;
-  bytes_recv = recvfrom(sd, buf, MAXBUF, 0, (struct sockaddr *) remote_addr,
-                          &addr_len);
+  bytes_recv = recvfrom(lp->sd, buf, MAXBUF, 0, 
+                        (struct sockaddr *)&remote, &addr_len);
   if (bytes_recv < 0) {
-      char *err_msg = get_listener_msg("Error receiving data", type);
-      listener_error_exit(err_msg);
-    }
+      char *err_msg = get_listener_msg("Error receiving data: ", lp->type);
+      safe_print(err_msg, lp->mu_set->io_mu);
+      pthread_mutex_lock(lp->mu_set->io_mu);
+      printf("%d", errno);
+      pthread_mutex_unlock(lp->mu_set->io_mu);
+      listener_error_exit("\n");
+  }
+  pthread_mutex_lock(lp->mu_set->client_addr_mu);
+  if (!(are_sockaddrs_equal((struct sockaddr *) lp->client_addr->addr, 
+                            (struct sockaddr *) &remote))) {
+    struct sockaddr *allocated_addr = copy_sockaddr(&remote);
+    set_client_address(lp->client_addr, allocated_addr, addr_len); 
+  }
+  pthread_mutex_unlock(lp->mu_set->client_addr_mu);
 }
 
 // TODO: DRY!
-void do_first_run(ListenerPack *lp, char *buf, 
-                  struct sockaddr_in *remote_addr) {
-  //receive_packet(lp->sd, buf, remote_addr, lp->type);
-  Packet *received_pack = gen_pack(lp->type);//bytes_to_pack(buf);
+void do_first_run(ListenerPack *lp, char *buf) {
+  receive_packet(lp, buf);
+  Packet *received_pack = bytes_to_pack(buf);
   store_batch(received_pack, lp);
-  //free_pack(received_pack);
+  free_pack(received_pack);
   char *msg = get_listener_msg("Batch stored\n", lp->type);
   safe_print(msg, lp->mu_set->io_mu);
   free(msg);

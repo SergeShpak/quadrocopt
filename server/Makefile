@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-c -Wall -g
+CFLAGS=-c -Wall -Wextra -W -g -pedantic
 LINK_FLAGS=-lm -pthread
 OUT=server
 OBJ=main.o io_stuff.o data_struct.o calculate.o nrutil.o network_interactions.o utils.o listener.o threading_stuff.o sender.o run_sender.o

@@ -34,19 +34,32 @@ void wait_for_calculator(SenderPack *sp) {
 void send_calcs(SenderPack *sp) {
   size_t calc_len = sp->cs->calculations_len;
   float *calcs = sp->cs->calculations;
-  char *calcs_string = float_arr_to_string(calcs, calc_len);
-  size_t calcs_str_len = strlen(calcs_string);
-  char *prefix = "Sender will send: ";
-  size_t prefix_len = strlen(prefix);
-  size_t total_len = calcs_str_len + prefix_len;
-  char *result_str = (char *) malloc(sizeof(char) * 
-                      (total_len + 2));
-  memcpy(result_str, prefix, prefix_len);
-  memcpy(result_str + prefix_len, calcs_string, calcs_str_len);
-  result_str[total_len] = '\n';
-  result_str[total_len + 1] = '\n';
-  free(calcs_string);
-  safe_print(result_str, sp->mu_set->io_mu);
+  Packet *pack = gen_packet_from_floats(calcs, calc_len);
+  char *pack_bytes = pack_to_bytes(pack);
+  size_t pack_size = get_pack_bytes_size(pack);
+  pthread_mutex_lock(sp->mu_set->client_addr_mu);
+  struct sockaddr *addr = 
+                  copy_sockaddr((struct sockaddr *)sp->client_addr->addr);
+  size_t addr_len = sp->client_addr->addr_len;
+  pthread_mutex_unlock(sp->mu_set->client_addr_mu);
+  int bytes_sent = sendto(sp->sd, pack_bytes, pack_size, 0, addr, addr_len); 
+  if (bytes_sent < 0) {
+    exit_error("Error sending data\n"); 
+  }
+  free(addr);
+//  char *calcs_string = float_arr_to_string(calcs, calc_len);
+//  size_t calcs_str_len = strlen(calcs_string);
+//  char *prefix = "Sender will send: ";
+//  size_t prefix_len = strlen(prefix);
+//  size_t total_len = calcs_str_len + prefix_len;
+//  char *result_str = (char *) malloc(sizeof(char) * 
+//                      (total_len + 2));
+//  memcpy(result_str, prefix, prefix_len);
+//  memcpy(result_str + prefix_len, calcs_string, calcs_str_len);
+//  result_str[total_len] = '\n';
+//  result_str[total_len + 1] = '\n';
+//  free(calcs_string);
+//  safe_print(result_str, sp->mu_set->io_mu);
 }
 
 void signal_sent(SenderPack *sp) {

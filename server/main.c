@@ -20,6 +20,8 @@ pthread_mutex_t *batch_stock_access_mu = NULL;
 pthread_mutex_t *batch_stock_first_mu = NULL;
 pthread_mutex_t *batch_stock_second_mu = NULL;
 pthread_mutex_t *io_mu = NULL;
+pthread_mutex_t *client_addr_mu = NULL;
+ClientAddress *client_addr = NULL;
 NetworkInterface *net_interface = NULL;
 BatchStock *bs = NULL;
 CalculationsStock *cs = NULL;
@@ -81,6 +83,7 @@ int main(int argc, char **argv) {
 
   while(1) {
     wait_listeners_write();
+    safe_print("Well, hello\n", io_mu);
     read_batches();
     signal_read();
     calculate_res();
@@ -93,6 +96,7 @@ int main(int argc, char **argv) {
 
 void initialize_globals() {
   net_interface = initialize_network_interface();
+  client_addr = initialize_client_address();
   bs = initialize_batch_stock();
   cs = initialize_calculations_stock();
   initialize_mutexes();
@@ -104,6 +108,7 @@ void initialize_mutexes() {
   batch_stock_first_mu = init_mutex(NULL);
   batch_stock_second_mu = init_mutex(NULL);
   batch_stock_access_mu = init_mutex(NULL);
+  client_addr_mu = init_mutex(NULL);
   io_mu = init_mutex(NULL);
 }
 
@@ -192,12 +197,13 @@ int start_listener(listener_t type, pthread_mutex_t *batch_stock_mu,
           ThreadConditionPack *calc_ready_condition_pack, int sd, 
           pthread_t *listener_thread) {
   int status;
-  ListenerMutexSet *lms = create_listener_mutex_set(batch_stock_mu, 
-                                                batch_stock_access_mu, io_mu);
-  ListenerThreadCondPackets *ltcp = initialize_cond_packs(cond_pack,
-                                                    calc_ready_condition_pack);
-  ListenerPack *lp = initialize_listener_pack(type, sd, lms, ltcp, 
-                                              bs, log_file);
+  ListenerMutexSet *lms = 
+              create_listener_mutex_set(batch_stock_mu, batch_stock_access_mu, 
+                                                        client_addr_mu, io_mu);
+  ListenerThreadCondPackets *ltcp = 
+                  initialize_cond_packs(cond_pack, calc_ready_condition_pack);
+  ListenerPack *lp = 
+                initialize_listener_pack(type, sd, client_addr, lms, ltcp, bs);
   listener_thread = (pthread_t *) malloc(sizeof(pthread_t));
   pthread_attr_t attr;
   pthread_attr_init(&attr);
@@ -215,13 +221,14 @@ void create_sender() {
 
 int start_sender() {
   sender = (pthread_t *) malloc(sizeof(pthread_t));
-  SenderMutexSet *mu_set = initialize_sender_mutex_set(io_mu);
+  SenderMutexSet *mu_set = initialize_sender_mutex_set(client_addr_mu, io_mu);
   SenderThreadCondPacks *cond_packs = 
                       initialize_sender_cond_packs(reader_calculated_cond_pack, 
                       sender_sent_cond_pack);
   set_cond_to_verify_to_true(cond_packs->sender_sent_cond_pack);
-  SenderPack *pack = initialize_sender_pack(net_interface->sd_out, cs, mu_set, 
-                                            cond_packs);
+  SenderPack *pack = 
+                initialize_sender_pack(net_interface->sd_out, client_addr, cs, 
+                                      mu_set, cond_packs);
   pthread_attr_t attr;
   pthread_attr_init(&attr);
   int status = 
