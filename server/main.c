@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "include/network_interactions.h"
+#include "include/calculate.h"
 #include "include/data_struct.h"
 #include "include/listener.h"
 #include "include/sender.h"
@@ -35,12 +36,6 @@ float *second_batch;
 size_t second_batch_len;
 float *calculated;
 
-//TODO: delete
-int counter = 0;
-
-pthread_mutex_t *calc_stock_empty_mu = NULL;
-// TODO: sender locks this mutex in the beginning
-pthread_mutex_t *calc_stock_full_mu = NULL;
 ThreadConditionPack *calc_to_sender_signal;
 ThreadConditionPack *sender_signal;
 
@@ -307,15 +302,11 @@ void calculate_res() {
   memcpy((void *)received_data + (sizeof(float) * first_batch_len), 
           (void *) second_batch, second_batch_len * sizeof(float));
   
-  // TODO: add calculations!!! 
-  size_t res_len = 4;
-  float *fl_buf = get_random_float_buf(res_len); 
-  add_to_calculations_stock(cs, fl_buf, res_len); 
-  counter++;
-  char *res_str = float_arr_to_string(fl_buf, res_len);
-  safe_print("Calculated: ", io_mu);
-  safe_print(res_str, io_mu);
-  free(res_str);
+  // TODO: add calculations!!!
+  free(received_data);
+  received_data = get_random_float_buf(13);
+  float *calcs_result = server_calculations(received_data);
+  add_to_calculations_stock(cs, calcs_result, SERVER_TO_CLIENT_PARAMS_COUNT); 
 }
 
 void signal_calculated() {

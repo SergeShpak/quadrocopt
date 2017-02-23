@@ -37,12 +37,12 @@ void wait_for_calculator(SenderPack *sp) {
 }
 
 void send_calcs(SenderPack *sp) {
+  size_t calc_len = sp->cs->calculations_len;
+  float *calcs = sp->cs->calculations;
+  Packet *pack = gen_packet_from_floats(calcs, calc_len);
+  char *pack_bytes = pack_to_bytes(pack);
+  size_t pack_size = get_pack_bytes_size(pack);
   rand_sleep(0, 1500 * 1000);
-//  size_t calc_len = sp->cs->calculations_len;
-//  float *calcs = sp->cs->calculations;
-//  Packet *pack = gen_packet_from_floats(calcs, calc_len);
-//  char *pack_bytes = pack_to_bytes(pack);
-//  size_t pack_size = get_pack_bytes_size(pack);
 //  pthread_mutex_lock(sp->mu_set->client_addr_mu);
 //  struct sockaddr *addr = 
 //                  copy_sockaddr((struct sockaddr *)sp->client_addr->addr);

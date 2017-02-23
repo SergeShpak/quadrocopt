@@ -2,6 +2,7 @@
 
 #include "include/network_interactions.h"
 #include "include/constants.h"
+#include "include/calculate.h"
 #include "include/nrutil.h"
 
 const float m = 0.53;
@@ -28,7 +29,6 @@ const float L1psy = 125;
 
 
 float *calculate_ordinary(Packet *pack);
-float *server_calculations(float *params);
 
 float *calculate(Packet *pack) {
   float *result;
