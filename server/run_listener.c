@@ -10,7 +10,7 @@ void do_first_run(ListenerPack *lp, char *buf);
 void receive_packet(ListenerPack *lp, char *buf);
 void store_batch(Packet *pack, ListenerPack *lp);
 void wait_until_calc_reads(ListenerPack *lp);
-void signal_ready(ListenerPack *lp);
+void signal_listener_ready(ListenerPack *lp);
 void listener_error_exit(char *msg);
 char *get_listener_msg(char *msg, int listener_number);
 char *allocate_buf();
@@ -19,22 +19,27 @@ char *allocate_buf();
 float *get_random_float_buf(size_t len);
 
 void run_listener(ListenerPack *lp) {
+  int rounds = 0;
   char *bufin = allocate_buf(); 
   char *msg;
-  do_first_run(lp, bufin);
+  //do_first_run(lp, bufin);
   while(1) {
+    rounds++;
+    pthread_mutex_lock(lp->mu_set->io_mu);
+    printf("[LISTENER]: round %d\n", rounds);
+    pthread_mutex_unlock(lp->mu_set->io_mu);
     //receive_packet(lp, bufin); 
     //Packet *received_pack = bytes_to_pack(bufin);
     size_t buf_len = 4;
     float *stub_buf = get_random_float_buf(4);
-    rand_sleep(0, 200);
+    rand_sleep(0, 1500*1000);
     Packet *received_pack = gen_packet_from_floats(stub_buf, buf_len);
     wait_until_calc_reads(lp);
     store_batch(received_pack, lp);
     msg = get_listener_msg("Batch stored\n", lp->type);
     safe_print(msg, lp->mu_set->io_mu);
     free(msg);
-    signal_ready(lp);
+    signal_listener_ready(lp);
   }
 }
 
@@ -44,14 +49,14 @@ void do_first_run(ListenerPack *lp, char *buf) {
   //Packet *received_pack = bytes_to_pack(buf);
   size_t buf_len = 4;
   float *stub_buf = get_random_float_buf(4);
-  rand_sleep(0, 200);
+  rand_sleep(0, 1500 * 1000);
   Packet *received_pack = gen_packet_from_floats(stub_buf, buf_len);
   store_batch(received_pack, lp);
   free_pack(received_pack);
   char *msg = get_listener_msg("Batch stored\n", lp->type);
   safe_print(msg, lp->mu_set->io_mu);
   free(msg);
-  signal_ready(lp);
+  signal_listener_ready(lp);
 }
 
 void receive_packet(ListenerPack *lp, char *buf) {
@@ -112,7 +117,7 @@ void wait_until_calc_reads(ListenerPack *lp) {
   pthread_mutex_unlock(calc_signal->mutex_to_use);
 }
 
-void signal_ready(ListenerPack *lp) {
+void signal_listener_ready(ListenerPack *lp) {
   ThreadConditionPack *listener_signal = lp->cond_packs->listener_signal;
   pthread_mutex_lock(listener_signal->mutex_to_use);
   set_cond_to_verify_to_true(listener_signal);

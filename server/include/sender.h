@@ -18,8 +18,8 @@ struct _SenderMutexSet {
 };
 
 struct _SenderThreadCondPacks {
-  ThreadConditionPack *reader_calculated_cond_pack;
-  ThreadConditionPack *sender_sent_cond_pack;
+  ThreadConditionPack *calc_to_sender_signal;
+  ThreadConditionPack *sender_signal;
 };
 
 struct _SenderPack {
@@ -40,8 +40,8 @@ SenderMutexSet *initialize_sender_mutex_set(pthread_mutex_t *client_addr_mu,
 void free_sender_mu_set(SenderMutexSet *mu_set);
 
 SenderThreadCondPacks *initialize_sender_cond_packs(
-                      ThreadConditionPack *reader_calculated_cond_pack,
-                      ThreadConditionPack *sender_sent_cond_pack);
+                      ThreadConditionPack *calc_to_sender_signal,
+                      ThreadConditionPack *sender_signal);
 void free_sender_cond_packs(SenderThreadCondPacks *stcp);
 
 void run_sender(SenderPack *sp);
