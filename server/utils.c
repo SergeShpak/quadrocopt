@@ -21,7 +21,7 @@ int get_random_int(int low, int high) {
 
 void rand_sleep(int low, int high) {
   int period_rand = get_random_int(low, high);
-  sleep(period_rand);
+  usleep(period_rand);
 }
 
 float *get_random_float_buf(size_t buf_len) {

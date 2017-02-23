@@ -88,7 +88,7 @@ int main(int argc, char **argv) {
     safe_print("REceived signal from listeners\n", io_mu);
     read_batches();
     safe_print("Batches read\n", io_mu);
-    rand_sleep(0, 200);
+    rand_sleep(0, 3);
     signal_read();
     
     //calculate_res();
