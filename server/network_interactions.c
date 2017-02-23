@@ -232,7 +232,8 @@ int are_sockaddrs_equal(struct sockaddr *first, struct sockaddr *second) {
   if (first->sa_family != second->sa_family) {
     return 0;
   }
-  for (int i = 0; i < 14; i++) {
+  int i;
+  for (i = 0; i < 14; i++) {
     if ((first->sa_data)[i] != (second->sa_data)[i]) {
       return 0;
     }

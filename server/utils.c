@@ -23,3 +23,13 @@ void rand_sleep(int low, int high) {
   int period_rand = get_random_int(low, high);
   sleep(period_rand);
 }
+
+float *get_random_float_buf(size_t buf_len) {
+  float *buf = (float *) malloc(sizeof(float) * buf_len);
+  int i;
+  for (i = 0; i < buf_len; i++) {
+    float cur_float = ((float)rand()/(float)(RAND_MAX)) * 100;
+    buf[i] = cur_float;
+  }
+  return buf;
+}

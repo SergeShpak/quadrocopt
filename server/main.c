@@ -41,8 +41,8 @@ int counter = 0;
 pthread_mutex_t *calc_stock_empty_mu = NULL;
 // TODO: sender locks this mutex in the beginning
 pthread_mutex_t *calc_stock_full_mu = NULL;
-ThreadConditionPack *reader_calculated_cond_pack;
-ThreadConditionPack *sender_sent_cond_pack;
+ThreadConditionPack *calc_to_sender_signal;
+ThreadConditionPack *sender_signal;
 
 // Static functions declarations
 
@@ -90,6 +90,7 @@ int main(int argc, char **argv) {
     safe_print("Batches read\n", io_mu);
     rand_sleep(0, 200);
     signal_read();
+    
     //calculate_res();
     //signal_calculated();
   }
@@ -133,7 +134,7 @@ ThreadConditionPack *initialize_thread_cond_pack() {
   pthread_cond_t *cond_var = init_cond_var(NULL);
   pthread_mutex_t *cond_mu = init_mutex(NULL);
   ThreadConditionPack *pack = init_thread_cond_pack(cond_var, cond_mu);
-  set_cond_to_verify_to_false(cond_var);
+  set_cond_to_verify_to_false(pack);
   return pack;
 }
 
@@ -219,8 +220,7 @@ int start_sender() {
   sender = (pthread_t *) malloc(sizeof(pthread_t));
   SenderMutexSet *mu_set = initialize_sender_mutex_set(client_addr_mu, io_mu);
   SenderThreadCondPacks *cond_packs = 
-                      initialize_sender_cond_packs(reader_calculated_cond_pack, 
-                      sender_sent_cond_pack);
+            initialize_sender_cond_packs(calc_to_sender_signal, sender_signal);
   set_cond_to_verify_to_true(cond_packs->sender_sent_cond_pack);
   SenderPack *pack = 
                 initialize_sender_pack(net_interface->sd_out, client_addr, cs, 
@@ -277,11 +277,12 @@ void read_batches() {
   second_batch = get_second_stock_from_batch(bs, &second_batch_len);  
   clean_batch_stock(bs);
   printf("First batch: ");
-  for (int i = 0; i < first_batch_len; i++) {
+  int i;
+  for (i = 0; i < first_batch_len; i++) {
     printf("%f ", first_batch[i]);
   }
   printf("\nSecond batch: ");
-  for(int i = 0; i < second_batch_len; i++) {
+  for (i = 0; i < second_batch_len; i++) {
     printf("%f ", second_batch[i]);
   }
   printf("\n");
@@ -294,19 +295,13 @@ void calculate_res() {
           first_batch_len * sizeof(float));
   memcpy((void *)received_data + (sizeof(float) * first_batch_len), 
           (void *) second_batch, second_batch_len * sizeof(float));
-  // TODO: place calculation function here
-  free(received_data);
-  float base = 1.1111;
-  float *result = (float *) malloc(sizeof(float) * 4);
-  if (counter >= 100) {
-    counter = 0;
-  }
-  for (int i = 0; i < 4; i++) {
-    result[i] = base + i + counter;
-  }
-  add_to_calculations_stock(cs, result, 4); 
+  
+  // TODO: add calculations!!! 
+  size_t res_len = 4;
+  float *fl_buf = get_random_float_buf(res_len); 
+  add_to_calculations_stock(cs, fl_buf, res_len); 
   counter++;
-  char *res_str = float_arr_to_string(result, 4);
+  char *res_str = float_arr_to_string(fl_buf, res_len);
   safe_print(res_str, io_mu);
   free(res_str);
   wait_for_sender();

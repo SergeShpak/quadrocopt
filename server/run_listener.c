@@ -144,12 +144,3 @@ char *get_listener_msg(char *msg, int listener_number) {
             prefix_listener, listener_number, msg); 
   return result;
 }
-
-float *get_random_float_buf(size_t buf_len) {
-  float *buf = (float *) malloc(sizeof(float) * buf_len);
-  for(int i = 0; i < buf_len; i++) {
-    float cur_float = ((float)rand()/(float)(RAND_MAX)) * 100;
-    buf[i] = cur_float;
-  }
-  return buf;
-}
