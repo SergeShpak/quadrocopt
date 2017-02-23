@@ -16,5 +16,6 @@ ThreadConditionPack *init_thread_cond_pack(pthread_cond_t *var,
 void free_thread_cond_pack(ThreadConditionPack*);
 void set_cond_to_verify_to_true(ThreadConditionPack*);
 void set_cond_to_verify_to_false(ThreadConditionPack*);
+int is_cond_false(ThreadConditionPack*);
 
 #endif

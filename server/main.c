@@ -17,21 +17,18 @@
 
 // mutex to lock on BatchStock access
 pthread_mutex_t *batch_stock_access_mu = NULL;  
-pthread_mutex_t *batch_stock_first_mu = NULL;
-pthread_mutex_t *batch_stock_second_mu = NULL;
 pthread_mutex_t *io_mu = NULL;
-pthread_mutex_t *client_addr_mu = NULL;
+pthread_mutex_t *client_addr_mu = NULL; //TODO: get rid of this mutex
+ThreadConditionPack *listener_one_signal = NULL;
+ThreadConditionPack *listener_two_signal = NULL;
+ThreadConditionPack *calc_signal_to_listener_one = NULL;
+ThreadConditionPack *calc_signal_to_listener_two = NULL;
 ClientAddress *client_addr = NULL;
 NetworkInterface *net_interface = NULL;
 BatchStock *bs = NULL;
 CalculationsStock *cs = NULL;
 pthread_t *listener_first = NULL, *listener_second = NULL, *sender = NULL;
 pthread_barrier_t *init_barrier = NULL;
-FILE *log_file = NULL;
-ThreadConditionPack *first_listener_cond_pack;
-ThreadConditionPack *second_listener_cond_pack;
-ThreadConditionPack *first_listener_calc_ready;
-ThreadConditionPack *second_listener_calc_ready;
 float *first_batch;
 size_t first_batch_len;
 float *second_batch;
@@ -41,8 +38,12 @@ float *calculated;
 //TODO: delete
 int counter = 0;
 
+pthread_mutex_t *calc_stock_empty_mu = NULL;
+// TODO: sender locks this mutex in the beginning
+pthread_mutex_t *calc_stock_full_mu = NULL;
 ThreadConditionPack *reader_calculated_cond_pack;
 ThreadConditionPack *sender_sent_cond_pack;
+
 // Static functions declarations
 
 void initialize_globals();
@@ -58,15 +59,18 @@ void tear_down();
 void *run_listener_callback(void*);
 void *run_sender_callback(void*);
 void create_listeners();
-int start_listener(listener_t type, pthread_mutex_t *batch_stock_mu, 
-              pthread_mutex_t *batch_stock_access_mu, 
-              ThreadConditionPack *cond_pack, 
-              ThreadConditionPack *calc_ready_condition_pack, int sd, 
-              pthread_t *listener_thread);
+int start_listener(listener_t type, 
+                    pthread_mutex_t *batch_stock_access_mu, 
+                    ThreadConditionPack *full_signal,
+                    ThreadConditionPack *calc_empty_signal, 
+                    int sd, 
+                    pthread_t *listener_thread);
 void spawn_workers();
 void wait_listeners_write();
+void wait_listener(ThreadConditionPack *listener_signal);
 void read_batches();
 void signal_read();
+void signal_listener(ThreadConditionPack *calc_to_listener_signal);
 
 int start_sender();
 void create_sender();
@@ -77,17 +81,17 @@ void wait_for_sender();
 // End of static functions declarations
 
 int main(int argc, char **argv) {
-  log_file = fopen("log", "w");
   initialize_globals();
   spawn_workers();
-
   while(1) {
     wait_listeners_write();
-    safe_print("Well, hello\n", io_mu);
+    safe_print("REceived signal from listeners\n", io_mu);
     read_batches();
+    safe_print("Batches read\n", io_mu);
+    rand_sleep(0, 200);
     signal_read();
-    calculate_res();
-    signal_calculated();
+    //calculate_res();
+    //signal_calculated();
   }
 
   tear_down();
@@ -105,8 +109,6 @@ void initialize_globals() {
 }
 
 void initialize_mutexes() {
-  batch_stock_first_mu = init_mutex(NULL);
-  batch_stock_second_mu = init_mutex(NULL);
   batch_stock_access_mu = init_mutex(NULL);
   client_addr_mu = init_mutex(NULL);
   io_mu = init_mutex(NULL);
@@ -117,23 +119,21 @@ void initialize_barriers() {
   pthread_barrierattr_init(&attr);
   init_barrier = (pthread_barrier_t *) malloc(sizeof(pthread_barrier_t));
   pthread_barrier_init(init_barrier, &attr, 
-                        SERVER_NUMBER_OF_LISTENERS + 2);
+                        SERVER_NUMBER_OF_LISTENERS + 1);
 }
 
 void initialize_condition_packs() {
-  first_listener_cond_pack = initialize_thread_cond_pack();
-  second_listener_cond_pack = initialize_thread_cond_pack();
-  first_listener_calc_ready = initialize_thread_cond_pack();
-  second_listener_calc_ready = initialize_thread_cond_pack();
-  reader_calculated_cond_pack = initialize_thread_cond_pack();
-  sender_sent_cond_pack = initialize_thread_cond_pack();
-  set_cond_to_verify_to_true(sender_sent_cond_pack);
+  listener_one_signal = initialize_thread_cond_pack();
+  listener_two_signal = initialize_thread_cond_pack();
+  calc_signal_to_listener_one = initialize_thread_cond_pack();
+  calc_signal_to_listener_two = initialize_thread_cond_pack(); 
 }
 
 ThreadConditionPack *initialize_thread_cond_pack() {
   pthread_cond_t *cond_var = init_cond_var(NULL);
   pthread_mutex_t *cond_mu = init_mutex(NULL);
   ThreadConditionPack *pack = init_thread_cond_pack(cond_var, cond_mu);
+  set_cond_to_verify_to_false(cond_var);
   return pack;
 }
 
@@ -156,8 +156,6 @@ void tear_down() {
 }
 
 void free_mutexes() {
-  free_mutex(batch_stock_first_mu);
-  free_mutex(batch_stock_second_mu);
 }
 
 void free_mutex(pthread_mutex_t *mu) {
@@ -169,41 +167,39 @@ void free_mutex(pthread_mutex_t *mu) {
 
 void spawn_workers() {
   create_listeners();
-  create_sender();
+  //create_sender();
   pthread_barrier_wait(init_barrier);
 }
 
 void create_listeners() { 
   int status;
-  status = start_listener(LISTENER_FIRST, 
-      batch_stock_first_mu, batch_stock_access_mu, first_listener_cond_pack, 
-      first_listener_calc_ready, net_interface->sd_in_first, 
-      listener_first);
+  status = start_listener(LISTENER_FIRST, batch_stock_access_mu,
+                          listener_one_signal, calc_signal_to_listener_one, 
+                          net_interface->sd_in_first, listener_first);
   if (status) {
     exit_error("Could not start the first listener.");
   }
-  status = start_listener(LISTENER_SECOND, 
-      batch_stock_second_mu, batch_stock_access_mu, second_listener_cond_pack,
-      second_listener_calc_ready, net_interface->sd_in_second, 
-      listener_second);
+  status = start_listener(LISTENER_SECOND, batch_stock_access_mu,
+                          listener_two_signal, calc_signal_to_listener_two,
+                          net_interface->sd_in_second, listener_second);
   if (status) {
     exit_error("Could not start the second listener");
   }
 }
 
-int start_listener(listener_t type, pthread_mutex_t *batch_stock_mu, 
-          pthread_mutex_t *batch_stock_access_mu, 
-          ThreadConditionPack *cond_pack, 
-          ThreadConditionPack *calc_ready_condition_pack, int sd, 
-          pthread_t *listener_thread) {
+int start_listener(listener_t type, pthread_mutex_t *batch_stock_access_mu, 
+                  ThreadConditionPack *listener_signal, 
+                  ThreadConditionPack *calc_to_listener_signal,
+                  int sd, pthread_t *listener_thread) {
   int status;
   ListenerMutexSet *lms = 
-              create_listener_mutex_set(batch_stock_mu, batch_stock_access_mu, 
-                                                        client_addr_mu, io_mu);
-  ListenerThreadCondPackets *ltcp = 
-                  initialize_cond_packs(cond_pack, calc_ready_condition_pack);
-  ListenerPack *lp = 
-                initialize_listener_pack(type, sd, client_addr, lms, ltcp, bs);
+              create_listener_mutex_set(batch_stock_access_mu, 
+                                        client_addr_mu, 
+                                        io_mu);
+  ListenerThreadCondPackets *ltcp = initialize_cond_packs(listener_signal, 
+                                                      calc_to_listener_signal);
+  ListenerPack *lp = initialize_listener_pack(type, sd, client_addr, lms, ltcp, 
+                                              bs);
   listener_thread = (pthread_t *) malloc(sizeof(pthread_t));
   pthread_attr_t attr;
   pthread_attr_init(&attr);
@@ -237,11 +233,6 @@ int start_sender() {
 }
 
 void *run_listener_callback(void *lp) {
-  ListenerPack *listener_pack = (ListenerPack *) lp;
-  pthread_mutex_lock(listener_pack->mu_set->batch_stock_mu);
-  pthread_mutex_lock(listener_pack->cond_packs->calc_read_cond->mutex_to_use);
-  pthread_mutex_lock(
-          listener_pack->cond_packs->calc_ready_condition_pack->mutex_to_use);
   pthread_barrier_wait(init_barrier);
   run_listener((ListenerPack *) lp);
   return NULL;
@@ -255,31 +246,30 @@ void *run_sender_callback(void *sp) {
 }
 
 void wait_listeners_write() {
-  pthread_mutex_lock(first_listener_cond_pack->mutex_to_use);
-  pthread_mutex_lock(batch_stock_first_mu);
-  pthread_mutex_unlock(batch_stock_first_mu);
-  set_cond_to_verify_to_true(first_listener_cond_pack);
-  pthread_cond_signal(first_listener_cond_pack->cond_var);
-  pthread_mutex_unlock(first_listener_cond_pack->mutex_to_use);
-  
-  pthread_mutex_lock(second_listener_cond_pack->mutex_to_use);
-  pthread_mutex_lock(batch_stock_second_mu);
-  pthread_mutex_unlock(batch_stock_second_mu);
-  set_cond_to_verify_to_true(second_listener_cond_pack);
-  pthread_cond_signal(second_listener_cond_pack->cond_var);
-  pthread_mutex_unlock(second_listener_cond_pack->mutex_to_use);
+  wait_listener(listener_one_signal);
+  wait_listener(listener_two_signal);
+}
+
+void wait_listener(ThreadConditionPack *listener_signal) {
+  pthread_mutex_lock(listener_signal->mutex_to_use);
+  while(is_cond_false(listener_signal)) {
+    pthread_cond_wait(listener_signal->cond_var, 
+                      listener_signal->mutex_to_use); 
+  }
+  set_cond_to_verify_to_false(listener_signal);
+  pthread_mutex_unlock(listener_signal->mutex_to_use);
 }
 
 void signal_read() {
-  pthread_mutex_lock(first_listener_calc_ready->mutex_to_use);
-  set_cond_to_verify_to_true(first_listener_calc_ready);
-  pthread_cond_signal(first_listener_calc_ready->cond_var);
-  pthread_mutex_unlock(first_listener_calc_ready->mutex_to_use);
+  signal_listener(calc_signal_to_listener_one);
+  signal_listener(calc_signal_to_listener_two);
+}
 
-  pthread_mutex_lock(second_listener_calc_ready->mutex_to_use);
-  set_cond_to_verify_to_true(second_listener_calc_ready);
-  pthread_cond_signal(second_listener_calc_ready->cond_var);
-  pthread_mutex_unlock(second_listener_calc_ready->mutex_to_use);
+void signal_listener(ThreadConditionPack *calc_to_listener_signal) {
+  pthread_mutex_lock(calc_to_listener_signal->mutex_to_use);
+  set_cond_to_verify_to_true(calc_to_listener_signal);
+  pthread_cond_signal(calc_to_listener_signal->cond_var);
+  pthread_mutex_unlock(calc_to_listener_signal->mutex_to_use);
 }
 
 void read_batches() {

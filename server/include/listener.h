@@ -27,15 +27,14 @@ struct _ListenerPack {
 };
 
 struct _ListenerMutexSet {
-  pthread_mutex_t *batch_stock_mu;
   pthread_mutex_t *batch_stock_access_mu;
   pthread_mutex_t *client_addr_mu;
   pthread_mutex_t *io_mu; 
 };
 
 struct _ListenerThreadCondPackets {
-  ThreadConditionPack *calc_read_cond;
-  ThreadConditionPack *calc_ready_condition_pack;
+  ThreadConditionPack *listener_signal;
+  ThreadConditionPack *calc_to_listener_signal;
 };
 
 ListenerPack *initialize_listener_pack(listener_t type, int sd, 
@@ -44,12 +43,13 @@ ListenerPack *initialize_listener_pack(listener_t type, int sd,
                         BatchStock *bs);
 
 ListenerThreadCondPackets *initialize_cond_packs(
-                              ThreadConditionPack *cond_pack,
-                              ThreadConditionPack *calc_ready_condition_pack);
+                                ThreadConditionPack *listener_signal,
+                                ThreadConditionPack *calc_to_listener_signal);
 
-ListenerMutexSet *create_listener_mutex_set(pthread_mutex_t *batch_stock_mu,
-                    pthread_mutex_t *batch_stock_access_mu,
-                    pthread_mutex_t *client_addr_mu, pthread_mutex_t *io_mu);
+ListenerMutexSet *create_listener_mutex_set(
+                                        pthread_mutex_t *batch_stock_access_mu,
+                                        pthread_mutex_t *client_addr_mu, 
+                                        pthread_mutex_t *io_mu);
 
 void free_listener_pack(ListenerPack *lp);
 void free_listener_mutex_set(ListenerMutexSet *mu_set);

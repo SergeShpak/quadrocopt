@@ -23,3 +23,7 @@ void set_cond_to_verify_to_true(ThreadConditionPack *cond_pack) {
 void set_cond_to_verify_to_false(ThreadConditionPack *cond_pack) {
   cond_pack->cond_to_verify = 0;
 }
+
+int is_cond_false(ThreadConditionPack *cond_pack) {
+  return !(cond_pack->cond_to_verify);
+}
