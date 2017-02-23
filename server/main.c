@@ -305,24 +305,23 @@ void calculate_res() {
   safe_print(res_str, io_mu);
   free(res_str);
   wait_for_sender();
-  calculated = result;
   signal_calculated();
   safe_print("Dispatcher: so far, so good\n", io_mu);
 }
 
 void signal_calculated() {
-  pthread_mutex_lock(reader_calculated_cond_pack->mutex_to_use);
-  set_cond_to_verify_to_true(reader_calculated_cond_pack);
-  pthread_cond_signal(reader_calculated_cond_pack->cond_var);
-  pthread_mutex_unlock(reader_calculated_cond_pack->mutex_to_use); 
+  pthread_mutex_lock(calc_to_sender_signal->mutex_to_use);
+  set_cond_to_verify_to_true(calc_to_sender_signal);
+  pthread_cond_signal(calc_to_sender_signal->cond_var);
+  pthread_mutex_unlock(calc_to_sender_signal->mutex_to_use); 
 }
 
 void wait_for_sender() {
-  pthread_mutex_lock(sender_sent_cond_pack->mutex_to_use);
-  while(!(sender_sent_cond_pack->cond_to_verify)) {
-    pthread_cond_wait(sender_sent_cond_pack->cond_var, 
-                      sender_sent_cond_pack->mutex_to_use); 
+  pthread_mutex_lock(sender_signal->mutex_to_use);
+  while(is_cond_false(sender_signal)) {
+    pthread_cond_wait(sender_signal->cond_var, 
+                      sender_signal->mutex_to_use); 
   }
-  set_cond_to_verify_to_false(sender_sent_cond_pack);
-  pthread_mutex_unlock(sender_sent_cond_pack->mutex_to_use);
+  set_cond_to_verify_to_false(sender_signal);
+  pthread_mutex_unlock(sender_signal->mutex_to_use);
 }
