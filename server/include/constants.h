@@ -11,4 +11,6 @@
 #define SERVER_IN_SECOND_PORT         43568
 #define SERVER_OUT_PORT               43569
 
+#define CLIENT_IN_PORT                32547
+
 #endif

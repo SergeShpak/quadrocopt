@@ -301,12 +301,10 @@ void calculate_res() {
           first_batch_len * sizeof(float));
   memcpy((void *)received_data + (sizeof(float) * first_batch_len), 
           (void *) second_batch, second_batch_len * sizeof(float));
-  
-  // TODO: add calculations!!!
+  float *calcs_results = server_calculations(received_data); 
   free(received_data);
-  received_data = get_random_float_buf(13);
-  float *calcs_result = server_calculations(received_data);
-  add_to_calculations_stock(cs, calcs_result, SERVER_TO_CLIENT_PARAMS_COUNT); 
+  //received_data = get_random_float_buf(13);
+  add_to_calculations_stock(cs, calcs_results, SERVER_TO_CLIENT_PARAMS_COUNT); 
 }
 
 void signal_calculated() {

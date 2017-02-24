@@ -41,7 +41,7 @@ void run_listener(ListenerPack *lp) {
 
 void receive_packet(ListenerPack *lp, char *buf) {
   int bytes_recv;
-  struct sockaddr_in remote; 
+  struct sockaddr remote; 
   socklen_t addr_len;
   bytes_recv = recvfrom(lp->sd, buf, MAXBUF, 0, 
                         (struct sockaddr *)&remote, &addr_len);
@@ -52,15 +52,22 @@ void receive_packet(ListenerPack *lp, char *buf) {
 //      printf("%d", errno);
 //      pthread_mutex_unlock(lp->mu_set->io_mu);
 //      listener_error_exit("\n");
-//  }
-  pthread_mutex_lock(lp->mu_set->client_addr_mu);
-  if (!(are_sockaddrs_equal((struct sockaddr *) lp->client_addr->addr, 
-                            (struct sockaddr *) &remote))) {
-    struct sockaddr *allocated_addr = 
-                                  copy_sockaddr((struct sockaddr *)&remote);
-    set_client_address(lp->client_addr, allocated_addr, addr_len); 
-  }
-  pthread_mutex_unlock(lp->mu_set->client_addr_mu);
+//  } 
+//g  pthread_mutex_lock(lp->mu_set->client_addr_mu);
+//g  pthread_mutex_lock(lp->mu_set->io_mu);
+//g  print_sockaddr((struct sockaddr *) &remote);
+//g  pthread_mutex_unlock(lp->mu_set->io_mu);
+//g  if (are_hosts_unequal(lp->client_addr->addr, &remote)) {
+//g    struct sockaddr *allocated_addr = 
+//g                                  copy_sockaddr((struct sockaddr *)&remote);
+//g    set_client_address(lp->client_addr, allocated_addr, addr_len); 
+//g    pthread_mutex_lock(lp->mu_set->io_mu);
+//g    printf("LISTENER %d set client address\n", lp->type);
+//g    print_sockaddr((struct sockaddr *)&remote);
+//g    print_sockaddr(lp->client_addr->addr);
+//g    pthread_mutex_unlock(lp->mu_set->io_mu);
+//g  }
+//g  pthread_mutex_unlock(lp->mu_set->client_addr_mu);
   pthread_mutex_lock(lp->mu_set->io_mu);
   printf("[LISTENER %d] received data\n", lp->type);
   pthread_mutex_unlock(lp->mu_set->io_mu);
