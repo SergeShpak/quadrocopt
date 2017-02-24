@@ -44,14 +44,7 @@ void set_u(float *u_arr) {
   U3 = u_arr[2];
   U4 = u_arr[3];
 }
-void create_output_files() {
-  fpTemps = fopen("temps.txt", "w");
-  fpX = fopen("xcoord.txt", "w");
-  fpY = fopen("ycoord.txt", "w");
-  fpZ = fopen("zcoord.txt", "w");
-  fpPsy = fopen("psy.txt", "w");
-  fpRef = fopen("ref.txt", "w");
-}
+
 
 void calc_ref(float tinit, float tend, float step){
   float t = tinit;
@@ -169,12 +162,12 @@ void getNextStep(AngleCoordCommand *var,
   for (i=1;i<=NVAR;i++)
     yout[i]=y[i]+h6*(dydx[i]+dyt[i]+2.0*dym[i]);
 
-	fprintf(fpTemps,"%f\n",ti + calc_data->step);
-	fprintf(fpX,"%f\n",yout[1]);
-	fprintf(fpY,"%f\n",yout[3]);
-	fprintf(fpZ,"%f\n",yout[5]);
-	fprintf(fpPsy,"%f\n",yout[11]);
-
+///g	fprintf(fpTemps,"%f\n",ti + calc_data->step);
+///g	fprintf(fpX,"%f\n",yout[1]);
+///g	fprintf(fpY,"%f\n",yout[3]);
+///g	fprintf(fpZ,"%f\n",yout[5]);
+///g	fprintf(fpPsy,"%f\n",yout[11]);
+///g
 	calc_data->Vx = yout[1];
   calc_data->VdotX=yout[2];
   calc_data->Vy=yout[3];

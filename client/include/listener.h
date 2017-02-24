@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <pthread.h>
 
+#include "data_struct.h"
 #include "network_interactions.h"
 #include "threading_stuff.h"
 

@@ -15,6 +15,7 @@
 #include "include/constants.h"
 #include "include/threading_stuff.h"
 #include "include/io_stuff.h"
+#include "include/printer.h"
 
 pthread_mutex_t *io_mu = NULL;
 ThreadConditionPack *sender_signal = NULL;
@@ -58,6 +59,7 @@ void free_mutexes();
 void free_mutex(pthread_mutex_t*);
 void *run_listener_callback(void*);
 void *run_sender_callback(void*);
+void *run_printer_callback(void*);
 void create_listener();
 int start_listener();
 void spawn_workers();
@@ -76,6 +78,7 @@ void signal_sender();
 
 void create_printer();
 int start_printer();
+void write_to_printer_stock();
 
 // End of static functions declarations
 
@@ -103,6 +106,10 @@ int main(int argc, char **argv) {
     safe_print("[CALCULATOR]: results calculated\n", io_mu);
     wait_sender();
     signal_sender();
+
+    wait_with_pack(printer_signal);
+    write_to_printer_stock();
+    signal_with_pack(calc_to_printer_signal);
   }
   return 0;
 }
@@ -233,6 +240,12 @@ int start_printer() {
   pthread_t *printer = (pthread_t *) malloc(sizeof(pthread_t));
   pthread_attr_t attr;
   pthread_attr_init(&attr);
+  PrinterMutexSet *mu_set = initialize_printer_mu_set(io_mu);
+  PrinterThreadCondPackets *cond_packs = 
+                        initialize_printer_thread_cond_packs(printer_signal, 
+                        calc_to_printer_signal);
+  PrinterPack *pack = 
+                    initialize_printer_pack(mu_set, cond_packs, printer_stock);
   int status = 
           pthread_create(printer, &attr, &run_printer_callback, (void *) pack);
   return status;
@@ -248,6 +261,13 @@ void *run_sender_callback(void *sp) {
   SenderPack *sender_pack = (SenderPack *) sp;
   pthread_barrier_wait(init_barrier);
   run_sender(sender_pack);
+  return NULL;
+}
+
+void *run_printer_callback(void *pp) {
+  PrinterPack *printer_pack = (PrinterPack *) pp;
+  pthread_barrier_wait(init_barrier);
+  run_printer(printer_pack);
   return NULL;
 }
 
@@ -302,4 +322,15 @@ void fill_sender_stock() {
                                   init_first_batch, init_first_batch_len);
   add_second_batch_to_sender_stock(sender_stock, 
                                   init_second_batch, init_second_batch_len);
+}
+
+void write_to_printer_stock() {
+  float *new_printer_batch = (float *) malloc(sizeof(float) * 5);
+  new_printer_batch[0] = calc_data->curr_time;
+  new_printer_batch[1] = calc_data->Vx;
+  new_printer_batch[2] = calc_data->Vy;
+  new_printer_batch[3] = calc_data->Vz;
+  new_printer_batch[4] = calc_data->Vpsy;
+  printer_stock->batch = new_printer_batch;
+  printer_stock->batch_len = 5;
 }

@@ -3,7 +3,7 @@ CFLAGS=-c -Wall -g
 OUT=client
 OBJ=main.o calculate.o calculate_structs.o data_struct.o listener.o \
 	network_interactions.o nrutil.o sender.o threading_stuff.o utils.o \
-	io_stuff.o run_listener.o run_sender.o
+	io_stuff.o run_listener.o run_sender.o printer.o
 PREF_OBJ=$(addprefix $(BUILD_FOLDER)/, $(OBJ))
 BUILD_FOLDER=build
 BIN_FOLDER=bin
