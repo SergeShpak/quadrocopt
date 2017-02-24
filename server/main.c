@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "include/network_interactions.h"
+#include "include/calculate.h"
 #include "include/data_struct.h"
 #include "include/listener.h"
 #include "include/sender.h"
@@ -35,12 +36,6 @@ float *second_batch;
 size_t second_batch_len;
 float *calculated;
 
-//TODO: delete
-int counter = 0;
-
-pthread_mutex_t *calc_stock_empty_mu = NULL;
-// TODO: sender locks this mutex in the beginning
-pthread_mutex_t *calc_stock_full_mu = NULL;
 ThreadConditionPack *calc_to_sender_signal;
 ThreadConditionPack *sender_signal;
 
@@ -48,7 +43,7 @@ ThreadConditionPack *sender_signal;
 
 void initialize_globals();
 void initialize_mutexes();
-ThreadConditionPack *initialize_thread_cond_pack();
+ThreadConditionPack *initialize_thread_cond_pack(int init_verif_var);
 void initialize_barriers();
 void initialize_condition_packs();
 pthread_cond_t *init_cond_var(pthread_condattr_t *attr);
@@ -83,16 +78,22 @@ void wait_for_sender();
 int main(int argc, char **argv) {
   initialize_globals();
   spawn_workers();
+  int rounds = 0;
   while(1) {
+    rounds++;
+    pthread_mutex_lock(io_mu);
+    printf("[CALCULATOR]: round %d\n", rounds);
+    pthread_mutex_unlock(io_mu);
     wait_listeners_write();
-    safe_print("REceived signal from listeners\n", io_mu);
     read_batches();
-    safe_print("Batches read\n", io_mu);
-    rand_sleep(0, 3);
+    safe_print("[CALCULATOR]: batches read\n", io_mu);
+    rand_sleep(0, 1500 * 1000);
     signal_read();
-    
-    //calculate_res();
-    //signal_calculated();
+     
+    calculate_res();
+    safe_print("[CALCULATOR]: results calculated\n", io_mu);
+    wait_for_sender();
+    signal_calculated();
   }
 
   tear_down();
@@ -120,21 +121,27 @@ void initialize_barriers() {
   pthread_barrierattr_init(&attr);
   init_barrier = (pthread_barrier_t *) malloc(sizeof(pthread_barrier_t));
   pthread_barrier_init(init_barrier, &attr, 
-                        SERVER_NUMBER_OF_LISTENERS + 1);
+                    SERVER_NUMBER_OF_LISTENERS + SERVER_NUMBER_OF_SENDERS + 1);
 }
 
 void initialize_condition_packs() {
-  listener_one_signal = initialize_thread_cond_pack();
-  listener_two_signal = initialize_thread_cond_pack();
-  calc_signal_to_listener_one = initialize_thread_cond_pack();
-  calc_signal_to_listener_two = initialize_thread_cond_pack(); 
+  listener_one_signal = initialize_thread_cond_pack(0);
+  listener_two_signal = initialize_thread_cond_pack(0);
+  calc_signal_to_listener_one = initialize_thread_cond_pack(1);
+  calc_signal_to_listener_two = initialize_thread_cond_pack(1);
+  calc_to_sender_signal = initialize_thread_cond_pack(0);
+  sender_signal = initialize_thread_cond_pack(1);
 }
 
-ThreadConditionPack *initialize_thread_cond_pack() {
+ThreadConditionPack *initialize_thread_cond_pack(int init_verif_var) {
   pthread_cond_t *cond_var = init_cond_var(NULL);
   pthread_mutex_t *cond_mu = init_mutex(NULL);
   ThreadConditionPack *pack = init_thread_cond_pack(cond_var, cond_mu);
-  set_cond_to_verify_to_false(pack);
+  if (!init_verif_var) {
+    set_cond_to_verify_to_false(pack);
+    return pack;
+  }
+  set_cond_to_verify_to_true(pack);
   return pack;
 }
 
@@ -168,7 +175,7 @@ void free_mutex(pthread_mutex_t *mu) {
 
 void spawn_workers() {
   create_listeners();
-  //create_sender();
+  create_sender();
   pthread_barrier_wait(init_barrier);
 }
 
@@ -221,7 +228,6 @@ int start_sender() {
   SenderMutexSet *mu_set = initialize_sender_mutex_set(client_addr_mu, io_mu);
   SenderThreadCondPacks *cond_packs = 
             initialize_sender_cond_packs(calc_to_sender_signal, sender_signal);
-  set_cond_to_verify_to_true(cond_packs->sender_sent_cond_pack);
   SenderPack *pack = 
                 initialize_sender_pack(net_interface->sd_out, client_addr, cs, 
                                       mu_set, cond_packs);
@@ -295,18 +301,10 @@ void calculate_res() {
           first_batch_len * sizeof(float));
   memcpy((void *)received_data + (sizeof(float) * first_batch_len), 
           (void *) second_batch, second_batch_len * sizeof(float));
-  
-  // TODO: add calculations!!! 
-  size_t res_len = 4;
-  float *fl_buf = get_random_float_buf(res_len); 
-  add_to_calculations_stock(cs, fl_buf, res_len); 
-  counter++;
-  char *res_str = float_arr_to_string(fl_buf, res_len);
-  safe_print(res_str, io_mu);
-  free(res_str);
-  wait_for_sender();
-  signal_calculated();
-  safe_print("Dispatcher: so far, so good\n", io_mu);
+  float *calcs_results = server_calculations(received_data); 
+  free(received_data);
+  //received_data = get_random_float_buf(13);
+  add_to_calculations_stock(cs, calcs_results, SERVER_TO_CLIENT_PARAMS_COUNT); 
 }
 
 void signal_calculated() {

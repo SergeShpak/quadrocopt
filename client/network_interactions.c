@@ -10,6 +10,7 @@
 #include "include/constants.h"
 #include "include/io_stuff.h"
 
+
 /******************************************************************************
 **  NetworkInterface structure  ***********************************************
 ******************************************************************************/
@@ -20,21 +21,14 @@ uint32_t get_addr_ulong_from_string(char *str);
 NetworkInterface *initialize_network_interface() {
   NetworkInterface *interf = 
                 (NetworkInterface*) malloc(sizeof(NetworkInterface)); 
-  interf->sd_in_first = socket(PF_INET, SOCK_DGRAM, 0);
-  interf->sd_in_second = socket(PF_INET, SOCK_DGRAM, 0);
+  interf->sd_in = socket(PF_INET, SOCK_DGRAM, 0);
   interf->sd_out = socket(PF_INET, SOCK_DGRAM, 0);
-  if (interf->sd_in_first < 0 || interf->sd_in_second < 0 
-                              || interf->sd_out < 0) {
+  if (interf->sd_in < 0 || interf->sd_out < 0) {
     exit_error("Problem creating sockets\n");
   }
-  bind_sockaddr(INADDR_ANY, SERVER_IN_FIRST_PORT, 
-                &(interf->skaddr_in_first), &(interf->sd_in_first));
-  bind_sockaddr(INADDR_ANY, SERVER_IN_SECOND_PORT,
-                &(interf->skaddr_in_second), &(interf->sd_in_second));
-  bind_sockaddr(INADDR_ANY, SERVER_OUT_PORT,
-                &(interf->skaddr_out), &(interf->sd_out));
-  print_sockaddr((struct sockaddr *)&(interf->skaddr_in_first));
-  interf->client_addr = initialize_client_address();
+  bind_sockaddr(INADDR_ANY, CLIENT_IN_PORT, &(interf->skaddr_in), 
+                &(interf->sd_in));
+  interf->server_addr = NULL;
   return interf;
 }
 
@@ -69,36 +63,43 @@ void free_network_interface(NetworkInterface *ni) {
 
 
 /******************************************************************************
-**  ClientAddress structure ***************************************************
+**  ServerAddress structure ***************************************************
 ******************************************************************************/
 
-ClientAddress *initialize_client_address() {
-  ClientAddress *addr = (ClientAddress *) malloc(sizeof(ClientAddress));
-  struct sockaddr_in *sa = 
-                    (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
-  sa->sin_family = AF_INET;
-  sa->sin_addr.s_addr = inet_addr("127.0.0.1");
-  sa->sin_port = htons((unsigned short) CLIENT_IN_PORT);
-  addr->addr = (struct sockaddr *) sa;
-  addr->addr_len = sizeof(*sa);
-  return addr;
+void init_sa_in(struct sockaddr_in *sa_in, char *host, int port);
+
+
+ServerAddress *set_server_address(char *host_addr) {
+  ServerAddress *server_address = 
+                              (ServerAddress *) malloc(sizeof(ServerAddress));
+  struct sockaddr_in *sa_in_first = 
+                    (struct sockaddr_in *) malloc(sizeof(struct sockaddr_in));
+  struct sockaddr_in *sa_in_second = 
+                    (struct sockaddr_in *) malloc(sizeof(struct sockaddr_in));
+  init_sa_in(sa_in_first, host_addr, SERVER_IN_FIRST_PORT);
+  init_sa_in(sa_in_second, host_addr, SERVER_IN_SECOND_PORT);
+  struct sockaddr *sa_first = (struct sockaddr *) sa_in_first;
+  struct sockaddr *sa_second = (struct sockaddr *) sa_in_second;
+  server_address->in_first = sa_first;
+  server_address->first_len = sizeof(*sa_first);
+  server_address->in_second = sa_second;
+  server_address->second_len = sizeof(*sa_second);
+  return server_address;
 }
 
-ClientAddress *set_client_address(ClientAddress *client_addr, 
-                                struct sockaddr *addr, socklen_t addr_len) {
-  client_addr->addr = addr;
-  client_addr->addr_len = addr_len;
-  return client_addr;
-}
-
-void free_client_address(ClientAddress *addr) {
+void free_server_address(ServerAddress *addr) {
   free(addr);
 }
 
 /******************************************************************************
-**  End of ClientAddress structure region  ************************************
+**  End of ServerAddress structure region  ************************************
 ******************************************************************************/
 
+void init_sa_in(struct sockaddr_in *sa_in, char *host, int port) {
+  sa_in->sin_family = AF_INET;
+  sa_in->sin_addr.s_addr = inet_addr(host);
+  sa_in->sin_port = htons((unsigned short) port);
+}
 
 /******************************************************************************
 **  Packet structure **********************************************************

@@ -12,34 +12,22 @@
 #include <arpa/inet.h>  /* IP address conversion stuff */
 #include <netdb.h>      /* gethostbyname */
 #include <string.h>
+#include <pthread.h>
 
 #include "include/io_stuff.h"
 #include "include/data_struct.h"
 #include "include/calculate.h"
 #include "include/constants.h"
 
-/* get_stdin reads from standard input until EOF is found,
-   or the maximum bytes have been read.
-*/
+udp_com *com_first_port;
+udp_com *com_out_port;
+udp_com *com_second_port;
 
-//int get_stdin( char *buf, int maxlen ) {
-//  int i=0;
-//  int n;
-//
-//  while ( (n=read(STDIN_FILENO,buf+i,maxlen-i)) > 0 ) {
-//    i+=n;
-//    if (i==maxlen) break;
-//  }
-//
-//  if (n!=0) {
-//    perror("Error reading stdin");
-//    exit(1);
-//  }
-//
-//  /* return the number of bytes read including the last read */
-//  return(i);
-//}
+int is_running = 1;
 
+void* send_position_angle(void *buffer);
+void* receive_command(void *buffer);
+void init_connexion();
 
 /* client program:
 
@@ -48,67 +36,87 @@
       port number of the server (argv[2])
 */
 
-
 int main( int argc, char **argv ) {
-  int sk;
-  struct sockaddr_in server;
-  struct hostent *hp;
-  char *buf = (char*) malloc(sizeof(char) * MAXBUF);
 
-  /* Make sure we have the right number of command line args */
-
-  if (argc!=3) {
-    printf("Usage: %s <server name> <port number>\n",argv[0]);
+  if (argc!=2) {
+    printf("Usage: %s <server name> \n",argv[0]);
     exit(0);
   }
 
-  /* create a socket
-     IP protocol family (PF_INET)
-     UDP (SOCK_DGRAM)
-  */
+  com_first_port = init_udp_com(argv[1],SERVER_IN_FIRST_PORT,MAXBUF);
+  com_second_port = init_udp_com(argv[1],SERVER_IN_SECOND_PORT,MAXBUF);
+  com_out_port = init_listener_udp_com(argv[1]);
 
-  if ((sk = socket( PF_INET, SOCK_DGRAM, 0 )) < 0)
-    {
-      printf("Problem creating socket\n");
-      exit(1);
-    }
+  angle_coord_command *var = init_angle_coord_command(CLIENT_TO_SERVER_PARAMS_COUNT,
+                CLIENT_TO_SERVER_PARAMS_COUNT,SERVER_TO_CLIENT_PARAMS_COUNT);
 
-  /* Using UDP we don't need to call bind unless we care what our
-     port number is - most clients don't care */
+  init_connexion();
 
-  /* now create a sockaddr that will be used to contact the server
+  pthread_t monThreadEnvoyeur;
+  pthread_t monThreadRecepteur;
 
-     fill in an address structure that will be used to specify
-     the address of the server we want to connect to
+  pthread_create(&monThreadEnvoyeur,NULL,send_position_angle, (void *) var);
+  pthread_create(&monThreadRecepteur,NULL,receive_command,(void* ) var);
 
-     address family is IP  (AF_INET)
+  launch_calculations(var);
 
-     server IP address is found by calling gethostbyname with the
-     name of the server (entered on the command line)
+  is_running = 0;
+  close(com_first_port->sk);
+  close(com_second_port->sk);
+  close(com_out_port->sk);
 
-     server port number is argv[2] (entered on the command line)
-  */
+  pthread_join(monThreadEnvoyeur,NULL);
+  pthread_join(monThreadRecepteur,NULL);
 
-  server.sin_family = AF_INET;
-  if ((hp = gethostbyname(argv[1]))==0) {
-    printf("Invalid or unknown host\n");
-    exit(1);
-  }
+  free_udp_com(com_first_port);
+  free_udp_com(com_second_port);
+  free_udp_com(com_out_port);
+  free_angle_coord_command(var);
 
-  /* copy the IP address into the sockaddr
-     It is already in network byte order
-  */
-
-  memcpy( &server.sin_addr.s_addr, hp->h_addr, hp->h_length);
-
-  /* establish the server port number - we must use network byte order! */
-  server.sin_port = htons(atoi(argv[2]));
-
-  launch_calculations(sk, (struct sockaddr*) &server, sizeof(server), buf);
-
-  printf("%s\n", "Calculations finished");
-
-  free(buf);
   return(0);
 }
+
+void* send_position_angle(void *buffer){
+  angle_coord_command *var = (angle_coord_command *) buffer;
+  while(is_running){
+    send_data(com_first_port,com_second_port,var);
+  }
+  return NULL;
+}
+
+void* receive_command (void* buffer){
+  angle_coord_command *var =(angle_coord_command *) buffer;
+  while(is_running){
+    recv_data(com_out_port,var);
+  }
+  return NULL;
+}
+
+void init_connexion(){
+  float *msg = (float *) (malloc(sizeof(float) * CLIENT_TO_SERVER_PARAMS_COUNT));
+  for(int i=0;i<CLIENT_TO_SERVER_PARAMS_COUNT;i++){
+    msg[i] = 5.0;
+  }
+  packet *sent = gen_packet_from_floats(msg,CLIENT_TO_SERVER_PARAMS_COUNT);
+  send_unit(sent,com_first_port);
+  send_unit(sent,com_second_port);
+  send_unit(sent,com_out_port);
+  printf("%s", "Init packet Sent: ");
+  print_pack(sent);
+  printf("%s", "\n");
+  packet *recv1 = recv_unit(com_first_port);
+  packet *recv2 = recv_unit(com_second_port);
+  packet *recv3 = recv_unit(com_out_port);
+  printf("%s", "Init packet Received: ");
+  print_pack(recv1);
+  print_pack(recv2);
+  print_pack(recv3);
+  printf("%s", "\n");
+  free_pack(sent);
+  free_pack(recv1);
+  free_pack(recv2);
+  free_pack(recv3);
+  free(msg);
+}
+
 

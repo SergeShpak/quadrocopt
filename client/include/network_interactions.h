@@ -10,7 +10,7 @@
 typedef struct _NetworkInterface NetworkInterface;
 typedef struct _Packet Packet;
 typedef enum _packet_t packet_t;
-typedef struct _ClientAddress ClientAddress;
+typedef struct _ServerAddress ServerAddress;
 
 /******************************************************************************
 **  NetworkInterface structure  ***********************************************
@@ -24,13 +24,10 @@ typedef struct _ClientAddress ClientAddress;
  * ./include/constants.h.
  */
 struct _NetworkInterface {
-  int sd_in_first;
-  int sd_in_second;
+  int sd_in;
   int sd_out;
-  struct sockaddr_in skaddr_in_first;
-  struct sockaddr_in skaddr_in_second;
-  struct sockaddr_in skaddr_out;
-  ClientAddress *client_addr;
+  struct sockaddr_in skaddr_in;
+  ServerAddress *server_addr;
 };
 
 /**
@@ -56,24 +53,22 @@ void free_network_interface(NetworkInterface *ni);
 **  End of NetworkInterface structure region  *********************************
 ******************************************************************************/
 
-struct _ClientAddress {
-  struct sockaddr *addr;
-  socklen_t addr_len;
-};
-
-ClientAddress *initialize_client_address();
-ClientAddress *set_client_address(ClientAddress *client_addr, 
-                                struct sockaddr *addr, socklen_t addr_len);
-void free_client_address(ClientAddress *addr);
-
 /******************************************************************************
-**  ClientAddress structure ***************************************************
+**  ServerAddress structure ***************************************************
 ******************************************************************************/
 
+struct _ServerAddress {
+  struct sockaddr *in_first;
+  struct sockaddr *in_second;
+  socklen_t first_len;
+  socklen_t second_len;
+};
 
+ServerAddress *set_server_address(char *host_addr);
+void free_server_address(ServerAddress *addr);
 
 /******************************************************************************
-**  End of ClientAddress structure region *************************************
+**  End of ServerAddress structure region *************************************
 ******************************************************************************/
 
 

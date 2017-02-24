@@ -1,0 +1,46 @@
+#include <stdlib.h>
+#include <pthread.h>
+
+#include "include/threading_stuff.h"
+
+ThreadConditionPack *init_thread_cond_pack(pthread_cond_t *var, 
+                            pthread_mutex_t *cond_mu) {
+  ThreadConditionPack *result 
+    = (ThreadConditionPack *) malloc(sizeof(ThreadConditionPack));
+  result->cond_var = var;
+  result->mutex_to_use = cond_mu;
+  result->cond_to_verify = 0;
+  return result;
+}
+
+void free_thread_cond_pack(ThreadConditionPack *thread_cond_pack) {
+  free(thread_cond_pack);
+}
+
+void set_cond_to_verify_to_true(ThreadConditionPack *cond_pack) {
+  cond_pack->cond_to_verify = 1;
+}
+
+void set_cond_to_verify_to_false(ThreadConditionPack *cond_pack) {
+  cond_pack->cond_to_verify = 0;
+}
+
+int is_cond_false(ThreadConditionPack *cond_pack) {
+  return !(cond_pack->cond_to_verify);
+}
+
+void wait_with_pack(ThreadConditionPack *pack) {
+  pthread_mutex_lock(pack->mutex_to_use);
+  while(is_cond_false(pack)) {
+    pthread_cond_wait(pack->cond_var, pack->mutex_to_use);
+  }
+  set_cond_to_verify_to_false(pack);
+  pthread_mutex_unlock(pack->mutex_to_use);
+}
+
+void signal_with_pack(ThreadConditionPack *pack) {
+  pthread_mutex_lock(pack->mutex_to_use);
+  set_cond_to_verify_to_true(pack);
+  pthread_cond_signal(pack->cond_var);
+  pthread_mutex_unlock(pack->mutex_to_use);
+}

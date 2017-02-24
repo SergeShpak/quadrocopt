@@ -2,7 +2,7 @@
 #define IO_STUFF_H
 
 #include <stddef.h>
-#include "data_struct.h"
+#include "network_interactions.h"
 
 void write_to_file(char *file_name, char *buf_to_write, size_t bytes_num);
 
@@ -19,6 +19,8 @@ packet_t char_arr_to_pack_type(char *ca);
 
 float *vec_to_floats(float *vec, size_t len);
 
-void print_pack(packet *p);
+void print_pack(Packet *p);
+
+char *float_arr_to_string(float *arr, size_t arr_len);
 
 #endif
