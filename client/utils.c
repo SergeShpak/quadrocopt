@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <pthread.h>
 #include <unistd.h>
 
@@ -32,4 +33,11 @@ float *get_random_float_buf(size_t buf_len) {
     buf[i] = cur_float;
   }
   return buf;
+}
+
+float *copy_arr_of_floats(float *arr, size_t arr_size) {
+  size_t copy_size = sizeof(float) * arr_size;
+  float *copy = (float *) malloc(copy_size);
+  memcpy(copy, arr, copy_size);
+  return copy;
 }

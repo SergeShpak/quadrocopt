@@ -3,6 +3,7 @@
 
 #include "data_struct.h"
 
-float *calculate(packet *pack);
+float *calculate(Packet *pack);
+float *server_calculations(float *params);
 
 #endif

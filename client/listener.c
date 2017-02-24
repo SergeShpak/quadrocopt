@@ -5,13 +5,10 @@
 #include "include/listener.h"
 #include "include/threading_stuff.h"
 
-ListenerPack *initialize_listener_pack(listener_t type, int sd, 
-                      ClientAddress *client_addr, ListenerMutexSet *mu_set, 
+ListenerPack *initialize_listener_pack(int sd, ListenerMutexSet *mu_set, 
                       ListenerThreadCondPackets *cond_packs, BatchStock *bs) {
   ListenerPack *lp = (ListenerPack *) malloc(sizeof(ListenerPack));
-  lp->type = type;
   lp->sd = sd;
-  lp->client_addr = client_addr;
   lp->mu_set = mu_set;
   lp->batch_stock = bs;
   lp->cond_packs = cond_packs;
@@ -22,13 +19,8 @@ void free_listener_pack(ListenerPack *lp) {
   free(lp);
 }
 
-ListenerMutexSet *create_listener_mutex_set(
-                                        pthread_mutex_t *batch_stock_access_mu,
-                                        pthread_mutex_t *client_addr_mu, 
-                                        pthread_mutex_t *io_mu) {
+ListenerMutexSet *create_listener_mutex_set(pthread_mutex_t *io_mu) {
   ListenerMutexSet *lms = (ListenerMutexSet *)malloc(sizeof(ListenerMutexSet));
-  lms->batch_stock_access_mu = batch_stock_access_mu;
-  lms->client_addr_mu = client_addr_mu;
   lms->io_mu = io_mu;
   return lms;
 }

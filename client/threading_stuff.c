@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <pthread.h>
 
 #include "include/threading_stuff.h"
 
@@ -26,4 +27,20 @@ void set_cond_to_verify_to_false(ThreadConditionPack *cond_pack) {
 
 int is_cond_false(ThreadConditionPack *cond_pack) {
   return !(cond_pack->cond_to_verify);
+}
+
+void wait_with_pack(ThreadConditionPack *pack) {
+  pthread_mutex_lock(pack->mutex_to_use);
+  while(is_cond_false(pack)) {
+    pthread_cond_wait(pack->cond_var, pack->mutex_to_use);
+  }
+  set_cond_to_verify_to_false(pack);
+  pthread_mutex_unlock(pack->mutex_to_use);
+}
+
+void signal_with_pack(ThreadConditionPack *pack) {
+  pthread_mutex_lock(pack->mutex_to_use);
+  set_cond_to_verify_to_true(pack);
+  pthread_cond_signal(pack->cond_var);
+  pthread_mutex_unlock(pack->mutex_to_use);
 }

@@ -13,7 +13,6 @@ typedef struct _SenderPack SenderPack;
 typedef struct _SenderThreadCondPacks SenderThreadCondPacks;
 
 struct _SenderMutexSet {
-  pthread_mutex_t *client_addr_mu;
   pthread_mutex_t *io_mu;
 };
 
@@ -24,24 +23,23 @@ struct _SenderThreadCondPacks {
 
 struct _SenderPack {
   int sd;
-  ClientAddress *client_addr;
-  CalculationsStock *cs; 
+  ServerAddress *server_addr;
+  SenderStock *stock; 
   SenderMutexSet *mu_set;
   SenderThreadCondPacks *cond_packs;
 };
 
-SenderPack *initialize_sender_pack(int sd, ClientAddress *client_addr, 
-                                CalculationsStock *cs, SenderMutexSet *mu_set, 
+SenderPack *initialize_sender_pack(int sd, ServerAddress *server_addr, 
+                                SenderStock *stock, SenderMutexSet *mu_set, 
                                 SenderThreadCondPacks *cond_packs);
 void free_sender_pack(SenderPack *sp);
 
-SenderMutexSet *initialize_sender_mutex_set(pthread_mutex_t *client_addr_mu, 
-                                            pthread_mutex_t *io_mu);
+SenderMutexSet *initialize_sender_mutex_set(pthread_mutex_t *io_mu);
 void free_sender_mu_set(SenderMutexSet *mu_set);
 
 SenderThreadCondPacks *initialize_sender_cond_packs(
-                      ThreadConditionPack *calc_to_sender_signal,
-                      ThreadConditionPack *sender_signal);
+                                  ThreadConditionPack *sender_signal,
+                                  ThreadConditionPack *calc_to_sender_signal);
 void free_sender_cond_packs(SenderThreadCondPacks *stcp);
 
 void run_sender(SenderPack *sp);
