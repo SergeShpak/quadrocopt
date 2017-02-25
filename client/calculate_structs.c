@@ -46,10 +46,22 @@ void free_calc_data(CalculatorData *calc_data) {
   free(calc_data);
 }
 
-void do_next_step(CalculatorData *calc_data, 
-                  AngleCoordCommand *angle_coord_command) {
-  getNextStep(angle_coord_command, calc_data);
-  calc_data->curr_time += calc_data->step;
+float *get_payload_from_calc_data(CalculatorData *calc_data) {
+  float *payload = (float *) malloc(sizeof(float) * 13);
+  payload[0] = calc_data->Vx;
+  payload[1] = calc_data->VdotX;
+  payload[2] = calc_data->Vy;
+  payload[3] = calc_data->VdotY;
+  payload[4] = calc_data->Vz;
+  payload[5] = calc_data->VdotZ; 
+  payload[6] = calc_data->Vtheta;
+  payload[7] = calc_data->VdotTheta;
+  payload[8] = calc_data->Vphi;
+  payload[9] = calc_data->VdotPhi;
+  payload[10] = calc_data->Vpsy;
+  payload[11] = calc_data->VdotPsy;
+  payload[12] = calc_data->curr_time;
+  return payload;
 }
 
 float *get_first_batch_from_calc_data(CalculatorData *calc_data) {
@@ -75,6 +87,21 @@ float *get_second_batch_from_calc_data(CalculatorData *calc_data) {
   return batch;
 }
 
+void set_calc_data(CalculatorData *calc_data, float *y) {
+  calc_data->Vx = y[1];
+  calc_data->VdotX=y[2];
+  calc_data->Vy=y[3];
+  calc_data->VdotY=y[4];
+	calc_data->Vz =y[5];
+  calc_data->VdotZ =y[6];
+  calc_data->Vtheta =y[7];
+  calc_data->VdotTheta=y[8];
+	calc_data->Vphi =y[9];
+  calc_data->VdotPhi=y[10];
+  calc_data->Vpsy=y[11];
+  calc_data->VdotPsy=y[12];
+}
+
 
 AngleCoordCommand *initialize_angle_coord_command() {
   AngleCoordCommand *angle_coord_command 
@@ -94,7 +121,7 @@ void set_angle_position(AngleCoordCommand *angle_coord_command,
   angle_coord_command->position = copy_arr_of_floats(position, 
                                             CLIENT_TO_SERVER_PARAMS_COUNT);
   angle_coord_command->angle = copy_arr_of_floats(angle, 
-                                            CLIENT_TO_SERVER_PARAMS_COUNT);
+                                            CLIENT_TO_SERVER_PARAMS_COUNT + 1);
 }
 
 void set_angle_command_u(AngleCoordCommand *angle_coord_command, 
