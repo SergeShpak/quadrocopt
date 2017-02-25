@@ -56,12 +56,10 @@ void create_output_files() {
   fpY = fopen("ycoord.txt", "w");
   fpZ = fopen("zcoord.txt", "w");
   fpPsy = fopen("psy.txt", "w");
-  fpRef = fopen("ref.txt", "w");
   fclose(fpTemps);
   fclose(fpX);
   fclose(fpZ);
   fclose(fpPsy);
-  fclose(fpRef);
 }
 
 void write_to_files(PrinterPack *pp) {
@@ -70,7 +68,6 @@ void write_to_files(PrinterPack *pp) {
   fpY = fopen("ycoord.txt", "a+");
   fpZ = fopen("zcoord.txt", "a+");
   fpPsy = fopen("psy.txt", "a+");
-  //fpRef = fopen("ref.txt", "a+");
   fprintf(fpTemps, "%f\n", pp->bs->batch[0]);
   fprintf(fpX, "%f\n", pp->bs->batch[1]);
   fprintf(fpY, "%f\n", pp->bs->batch[2]);
@@ -78,7 +75,7 @@ void write_to_files(PrinterPack *pp) {
   fprintf(fpPsy, "%f\n", pp->bs->batch[4]);
   fclose(fpTemps);
   fclose(fpX);
+  fclose(fpY);
   fclose(fpZ);
   fclose(fpPsy);
-  //fclose(fpRef);
 }

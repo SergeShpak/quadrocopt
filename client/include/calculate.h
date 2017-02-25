@@ -49,5 +49,6 @@ void set_angle_command_u(AngleCoordCommand *angle_coord_command, float *u_vec);
 void clean_angle_position(AngleCoordCommand *angle_coord_command);
 
 void getNextStep(AngleCoordCommand *var, CalculatorData *calc_data);
+void calc_ref(float tinit, float tend, float step);
 
 #endif

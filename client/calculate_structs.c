@@ -94,7 +94,7 @@ void set_angle_position(AngleCoordCommand *angle_coord_command,
   angle_coord_command->position = copy_arr_of_floats(position, 
                                             CLIENT_TO_SERVER_PARAMS_COUNT);
   angle_coord_command->angle = copy_arr_of_floats(angle, 
-                                            CLIENT_TO_SERVER_PARAMS_COUNT);
+                                            CLIENT_TO_SERVER_PARAMS_COUNT + 1);
 }
 
 void set_angle_command_u(AngleCoordCommand *angle_coord_command, 

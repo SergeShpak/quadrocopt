@@ -79,6 +79,7 @@ void signal_sender();
 void create_printer();
 int start_printer();
 void write_to_printer_stock();
+void calculate_ref();
 
 // End of static functions declarations
 
@@ -91,7 +92,7 @@ int main(int argc, char **argv) {
   initialize_globals();
   spawn_workers();
   int rounds = 0;
-  create_output_files();
+  calculate_ref();
   while(calc_data->curr_time <= calc_data->time_end) {
     rounds++;
     pthread_mutex_lock(io_mu);
@@ -333,4 +334,8 @@ void write_to_printer_stock() {
   new_printer_batch[4] = calc_data->Vpsy;
   printer_stock->batch = new_printer_batch;
   printer_stock->batch_len = 5;
+}
+
+void calculate_ref() {
+  calc_ref(calc_data->time_start, calc_data->time_end, calc_data->step);
 }

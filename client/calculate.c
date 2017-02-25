@@ -48,12 +48,14 @@ void set_u(float *u_arr) {
 
 void calc_ref(float tinit, float tend, float step){
   float t = tinit;
+  FILE *fpRef = fopen("ref.txt", "w");
   while(t<=tend){
     float *refTrajSt = tanRh(t,sigma,LowVal,HighVal,TRaise);
     fprintf(fpRef,"%f\n",refTrajSt[1]);
     free_vector(refTrajSt,1,5);
     t+=step;
   }
+  fclose(fpRef);
 }
 
 void derivs(float t, float X[], float dXdt[], AngleCoordCommand *var) {
@@ -78,13 +80,13 @@ void derivs(float t, float X[], float dXdt[], AngleCoordCommand *var) {
   for(i=0; i < CLIENT_TO_SERVER_PARAMS_COUNT - 1; i++) {
     position[i] = X[i+1];
   }
-  position[CLIENT_TO_SERVER_PARAMS_COUNT - 1] = t;
+  //position[CLIENT_TO_SERVER_PARAMS_COUNT - 1] = t;
   float *angle = 
-              (float *) malloc(sizeof(float) * CLIENT_TO_SERVER_PARAMS_COUNT);
+          (float *) malloc(sizeof(float) * (CLIENT_TO_SERVER_PARAMS_COUNT + 1));
   for(i=0; i < CLIENT_TO_SERVER_PARAMS_COUNT - 1; i++) {
-    angle[i] = X[CLIENT_TO_SERVER_PARAMS_COUNT + i];
+    angle[i] = X[CLIENT_TO_SERVER_PARAMS_COUNT + i + 1];
   }
-  angle[CLIENT_TO_SERVER_PARAMS_COUNT - 1] = t;
+  angle[CLIENT_TO_SERVER_PARAMS_COUNT] = t;
   clean_angle_position(var); 
   set_angle_position(var, position, angle);
 
