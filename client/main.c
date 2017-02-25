@@ -16,6 +16,7 @@
 #include "include/threading_stuff.h"
 #include "include/io_stuff.h"
 #include "include/printer.h"
+#include "include/nrutil.h"
 
 pthread_mutex_t *io_mu = NULL;
 ThreadConditionPack *sender_signal = NULL;
@@ -34,17 +35,20 @@ pthread_t *sender = NULL;
 pthread_barrier_t *init_barrier = NULL;
 float *printer_batch;
 float printer_batch_len;
-float *listener_batch;
+float *listener_batch = NULL;
 size_t listener_batch_len;
-float *sender_first_batch;
+float *sender_first_batch = NULL;
 size_t sender_first_batch_len;
-float *sender_second_batch;
+float *sender_second_batch = NULL;
 size_t sender_second_batch_len;
 
 CalculatorData *calc_data = NULL;
 
 ThreadConditionPack *calc_to_sender_signal;
 ThreadConditionPack *sender_signal;
+
+char *file_out_name = "out.txt";
+char *file_in_name = "in.txt";
 
 // Static functions declarations
 
@@ -80,6 +84,9 @@ void create_printer();
 int start_printer();
 void write_to_printer_stock();
 void calculate_ref();
+void get_next_step();
+float *get_u();
+float *normalize_vector(float *vec, size_t len, float cur_time);
 
 // End of static functions declarations
 
@@ -91,27 +98,12 @@ int main(int argc, char **argv) {
   server_addr_str = argv[1];
   initialize_globals();
   spawn_workers();
-  int rounds = 0;
+  FILE *f = fopen(file_out_name, "w");
+  fclose(f);
+  f = fopen(file_in_name, "w");
+  fclose(f);
   calculate_ref();
-  while(calc_data->curr_time <= calc_data->time_end) {
-    rounds++;
-    pthread_mutex_lock(io_mu);
-    printf("[CALCULATOR]: round %d\n", rounds);
-    pthread_mutex_unlock(io_mu);
-    wait_listener();
-    read_listener_batch();
-    safe_print("[CALCULATOR]: batch read\n", io_mu);
-    signal_listener();
-     
-    calculate_res();
-    safe_print("[CALCULATOR]: results calculated\n", io_mu);
-    wait_sender();
-    signal_sender();
-
-    wait_with_pack(printer_signal);
-    write_to_printer_stock();
-    signal_with_pack(calc_to_printer_signal);
-  }
+  do_client_calculations();
   return 0;
 }
 
@@ -141,8 +133,8 @@ void initialize_barriers() {
 }
 
 void initialize_condition_packs() {
-  sender_signal = initialize_thread_cond_pack(0);
-  calc_to_sender_signal = initialize_thread_cond_pack(1);
+  sender_signal = initialize_thread_cond_pack(1);
+  calc_to_sender_signal = initialize_thread_cond_pack(0);
   listener_signal = initialize_thread_cond_pack(0);
   calc_to_listener_signal = initialize_thread_cond_pack(1);
   printer_signal = initialize_thread_cond_pack(1);
@@ -282,6 +274,12 @@ void signal_listener() {
 
 void read_listener_batch() {
   listener_batch = get_batch_from_stock(listener_stock, &listener_batch_len);  
+  FILE *f = fopen(file_in_name, "a+");
+  for (int i = 0; i < listener_batch_len; i++) {
+    fprintf(f, "%f ", listener_batch[i]); 
+  }
+  fprintf(f, "\n");
+  fclose(f);
   clean_batch_stock(listener_stock);
 }
 
@@ -290,7 +288,7 @@ void calculate_res() {
   free(listener_batch);
   add_first_batch_to_sender_stock(sender_stock, 
                                 sender_first_batch, sender_first_batch_len);
-  add_first_batch_to_sender_stock(sender_stock,
+  add_second_batch_to_sender_stock(sender_stock,
                                 sender_second_batch, sender_second_batch_len);
 }
 
@@ -303,13 +301,13 @@ void signal_sender() {
 }
 
 void do_client_calculations() {
-  AngleCoordCommand *angle_coord_command = initialize_angle_coord_command();
-  set_angle_command_u(angle_coord_command, listener_batch);
-  do_next_step(calc_data, angle_coord_command);    
-  free(sender_first_batch);
-  free(sender_second_batch);
-  sender_first_batch = get_first_batch_from_calc_data(calc_data);
-  sender_second_batch = get_second_batch_from_calc_data(calc_data);
+  while(calc_data->curr_time <= calc_data->time_end) {
+    get_next_step();
+    calc_data->curr_time += calc_data->step;    
+    wait_with_pack(printer_signal);
+    write_to_printer_stock();
+    signal_with_pack(calc_to_printer_signal);
+  }
 }
 
 void fill_sender_stock() {
@@ -338,4 +336,112 @@ void write_to_printer_stock() {
 
 void calculate_ref() {
   calc_ref(calc_data->time_start, calc_data->time_end, calc_data->step);
+}
+
+void get_next_step() {
+  float *y,*yout,*dydx;
+  y = vector(1,NVAR);
+  yout = vector(1,NVAR);
+  dydx = vector (1,NVAR);
+  y[1] = calc_data->Vx;
+  y[2] = calc_data->VdotX;
+  y[3] = calc_data->Vy;
+  y[4] = calc_data->VdotY;
+  y[5] = calc_data->Vz;
+  y[6] = calc_data->VdotZ;
+  y[7] = calc_data->Vtheta;
+  y[8] = calc_data->VdotTheta;
+  y[9] = calc_data->Vphi;
+  y[10] = calc_data->VdotPhi;
+  y[11] = calc_data->Vpsy;
+  y[12] = calc_data->VdotPsy;
+
+  float ti = calc_data->curr_time;
+  float step = calc_data->step;
+  float *payload = get_payload_from_calc_data(calc_data);
+  float *u = get_u(payload);
+  free(payload);
+  (*derivs)(ti,y,dydx, u);
+  free(u);
+
+  int i;
+  float xh,hh,h6,*dym,*dyt,*yt;
+  float x = ti;
+  float h = step;
+
+  dym=vector(1,NVAR);
+  dyt=vector(1,NVAR);
+  yt=vector(1,NVAR);
+  hh=h*0.5;
+  h6=h/6.0;
+  xh=x+hh;
+  for (i=1;i<=NVAR;i++) yt[i]=y[i]+hh*dydx[i];
+  float *n_vec = normalize_vector(yt, NVAR, xh);
+  u = get_u(n_vec);
+  free(n_vec);
+  (*derivs)(xh,yt,dyt,u);
+  free(u);
+  for (i=1;i<=NVAR;i++) yt[i]=y[i]+hh*dyt[i];
+  n_vec = normalize_vector(yt, NVAR, xh);
+  u = get_u(n_vec);
+  free(n_vec);
+  (*derivs)(xh,yt,dym,u);
+  free(u);
+  for (i=1;i<=NVAR;i++) {
+    yt[i]=y[i]+h*dym[i];
+    dym[i] += dyt[i];
+  }
+  n_vec = normalize_vector(yt, NVAR, x+h);
+  u = get_u(n_vec);
+  free(n_vec);
+  (*derivs)(x+h,yt,dyt,u);
+  free(u);
+  for (i=1;i<=NVAR;i++)
+    yout[i]=y[i]+h6*(dydx[i]+dyt[i]+2.0*dym[i]);
+  set_calc_data(calc_data, yout);
+  
+  free_vector(yt,1,NVAR);
+  free_vector(dyt,1,NVAR);
+  free_vector(dym,1,NVAR);
+  free_vector(yout,1,NVAR);
+  free_vector(y,1,NVAR);
+  free_vector(dydx,1,NVAR);
+}
+
+float *get_u(float *payload) {
+  size_t first_bytes_size = sizeof(float) * 6;
+  size_t second_bytes_size = sizeof(float) * 7;
+  float *first_batch = (float *) malloc(first_bytes_size);
+  float *second_batch = (float *) malloc(second_bytes_size);
+  memcpy(first_batch, payload, first_bytes_size);
+  memcpy(second_batch, payload + 6, second_bytes_size);
+  wait_with_pack(sender_signal);
+  add_first_batch_to_sender_stock(sender_stock, first_batch, 6);
+  add_second_batch_to_sender_stock(sender_stock, second_batch, 7);
+  signal_with_pack(calc_to_sender_signal);
+  free(first_batch);
+  free(second_batch);
+  wait_with_pack(listener_signal);
+  read_listener_batch();
+  float *u = (float *) malloc(sizeof(float) * 4);
+  memcpy(u, listener_batch, sizeof(float) * 4);
+  free(listener_batch);
+  listener_batch = NULL;
+  signal_with_pack(calc_to_listener_signal);
+  FILE *in = fopen(file_in_name, "a+");
+  for (int i = 0; i < 4; i++) {
+    fprintf(in, "%f ", u[i]); 
+  }
+  fprintf(in, "\n");
+  fclose(in);
+  return u; 
+}
+
+float *normalize_vector(float *vec, size_t len, float cur_time) {
+  float *new_vec = (float *) malloc(sizeof(float) * (len + 1));
+  for (int i = 0; i < len; i++) {
+    new_vec[i] = vec[i + 1];
+  }
+  new_vec[len] = cur_time;
+  return new_vec;
 }

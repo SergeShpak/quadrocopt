@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <stdio.h>
 
+#include "include/constants.h"
 #include "include/sender.h"
 #include "include/utils.h"
 #include "include/io_stuff.h"
@@ -31,6 +32,15 @@ void run_sender(SenderPack *sp) {
     fetch_batches(sp, &first_batch, &first_batch_len, 
                   &second_batch, &second_batch_len);
     signal_with_pack(sp->cond_packs->sender_signal);
+    FILE *f = fopen("out.txt", "a+");
+    for (int i = 0; i < first_batch_len; i++) {
+      fprintf(f, "%f ", first_batch[i]); 
+    }
+    for(int i = 0; i < second_batch_len; i++) {
+      fprintf(f, "%f ", second_batch[i]); 
+    }
+    fprintf(f, "\n");
+    fclose(f);
     send_calcs(sp, first_batch, first_batch_len, 
                 second_batch, second_batch_len);
     free(first_batch);

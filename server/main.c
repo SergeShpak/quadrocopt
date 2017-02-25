@@ -39,6 +39,9 @@ float *calculated;
 ThreadConditionPack *calc_to_sender_signal;
 ThreadConditionPack *sender_signal;
 
+char *file_out_name = "out.txt";
+char *file_in_name = "in.txt";
+
 // Static functions declarations
 
 void initialize_globals();
@@ -76,6 +79,10 @@ void wait_for_sender();
 // End of static functions declarations
 
 int main(int argc, char **argv) {
+  FILE *f = fopen(file_out_name, "w");
+  fclose(f);
+  f = fopen(file_in_name, "w");
+  fclose(f);
   initialize_globals();
   spawn_workers();
   int rounds = 0;
@@ -301,7 +308,19 @@ void calculate_res() {
           first_batch_len * sizeof(float));
   memcpy((void *)received_data + (sizeof(float) * first_batch_len), 
           (void *) second_batch, second_batch_len * sizeof(float));
+  FILE *in = fopen(file_in_name, "a+");
+  for (int i = 0; i < received_data_len; i++) {
+    fprintf(in, "%f ", received_data[i]); 
+  }
+  fprintf(in, "\n");
+  fclose(in);
   float *calcs_results = server_calculations(received_data); 
+  FILE *out = fopen(file_out_name, "a+");
+  for (int i = 0; i < 4; i++) {
+    fprintf(out, "%f ", calcs_results[i]); 
+  }
+  fprintf(out, "\n");
+  fclose(out);
   free(received_data);
   //received_data = get_random_float_buf(13);
   add_to_calculations_stock(cs, calcs_results, SERVER_TO_CLIENT_PARAMS_COUNT); 
