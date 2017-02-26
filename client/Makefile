@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-c -Wall -g
+CFLAGS=-c -Wall -g -pg
 OUT=client
 OBJ=main.o calculate.o calculate_structs.o data_struct.o listener.o \
 	network_interactions.o nrutil.o sender.o threading_stuff.o utils.o \
@@ -7,7 +7,7 @@ OBJ=main.o calculate.o calculate_structs.o data_struct.o listener.o \
 PREF_OBJ=$(addprefix $(BUILD_FOLDER)/, $(OBJ))
 BUILD_FOLDER=build
 BIN_FOLDER=bin
-LINK_FLAGS=-lm -pthread
+LINK_FLAGS=-lm -pthread -pg
 
 all: postbuild
 
