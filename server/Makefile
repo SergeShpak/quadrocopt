@@ -1,6 +1,6 @@
 CC=gcc
-CFLAGS=-c -Wall -Wextra -W -g -pedantic
-LINK_FLAGS=-lm -pthread
+CFLAGS=-c -Wall -Wextra -W -g -pg -pedantic
+LINK_FLAGS=-lm -pthread -pg
 OUT=server
 OBJ=main.o io_stuff.o data_struct.o calculate.o nrutil.o network_interactions.o utils.o listener.o threading_stuff.o sender.o run_sender.o run_listener.o
 PREF_OBJ=$(addprefix $(BUILD_FOLDER)/, $(OBJ))
