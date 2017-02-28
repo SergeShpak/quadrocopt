@@ -1,19 +1,12 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "include/printer.h"
 #include "include/threading_stuff.h"
 
-void create_output_files();
-void write_to_files(PrinterPack *pp);
-
-FILE *fpTemps;
-FILE *fpX;
-FILE *fpY;
-FILE *fpZ;
-FILE *fpPsy;
-FILE *fpRef;
-
+void *copy_buf(const void *buf, size_t buf_len);
+char *copy_str(const char *src);
 
 PrinterPack *initialize_printer_pack(PrinterMutexSet *mu_set, 
                         PrinterThreadCondPackets *cond_packs, BatchStock *bs) {
@@ -24,12 +17,24 @@ PrinterPack *initialize_printer_pack(PrinterMutexSet *mu_set,
   return pp;
 }
 
+void free_printer_pack(PrinterPack *pack) {
+  free_printer_mutex_set(pack->mu_set);
+  free_printer_thread_cond_packs(pack->cond_packs);
+  free(pack);
+}
+
+
 PrinterMutexSet *initialize_printer_mu_set(pthread_mutex_t *io_mu) {
   PrinterMutexSet *mu_set = 
                           (PrinterMutexSet *) malloc(sizeof(PrinterMutexSet));
   mu_set->io_mu = io_mu;
   return mu_set;
 }
+
+void free_printer_mutex_set(PrinterMutexSet *mu_set) {
+  free(mu_set);
+}
+
 
 PrinterThreadCondPackets *initialize_printer_thread_cond_packs(
                                 ThreadConditionPack *printer_signal, 
@@ -41,41 +46,69 @@ PrinterThreadCondPackets *initialize_printer_thread_cond_packs(
   return cond_packs;
 }
 
-void run_printer(PrinterPack *pp) {
-  create_output_files();
-  while(1) {
-    wait_with_pack(pp->cond_packs->calc_to_printer_signal);
-    write_to_files(pp);
-    signal_with_pack(pp->cond_packs->printer_signal); 
+void free_printer_thread_cond_packs(PrinterThreadCondPackets *cond_packs) {
+  free(cond_packs);
+}
+
+
+PrinterParameters *initialize_printer_params(OutputStream out_stream,
+                    ParametersPayloadType payload_type, const char *file_path,
+                          char *open_mode, void *payload, int payload_len) {
+  PrinterParameters *params = 
+                      (PrinterParameters *) malloc(sizeof(PrinterParameters));
+  params->out_stream = out_stream;
+  params->payload_type = payload_type;
+  params->file_path = NULL;
+  params->open_mode = NULL;
+  params->payload = NULL;
+  params->payload_len = -1;
+  if (NULL != file_path) {
+    params->file_path = copy_str(file_path);
   }
+  if (NULL != open_mode) {
+    params->open_mode = copy_str(open_mode); 
+  }
+  if (NULL != payload) {
+    params->payload = copy_buf(payload, payload_len);
+    params->payload_len = payload_len;
+  }
+  return params;
 }
 
-void create_output_files() {
-  fpTemps = fopen("temps.txt", "w");
-  fpX = fopen("xcoord.txt", "w");
-  fpY = fopen("ycoord.txt", "w");
-  fpZ = fopen("zcoord.txt", "w");
-  fpPsy = fopen("psy.txt", "w");
-  fclose(fpTemps);
-  fclose(fpX);
-  fclose(fpZ);
-  fclose(fpPsy);
+void free_printer_params(PrinterParameters *params) {
+  free(params->file_path);
+  free(params->open_mode);
+  free(params->payload);
+  free(params);
 }
 
-void write_to_files(PrinterPack *pp) {
-  fpTemps = fopen("temps.txt", "a+");
-  fpX = fopen("xcoord.txt", "a+");
-  fpY = fopen("ycoord.txt", "a+");
-  fpZ = fopen("zcoord.txt", "a+");
-  fpPsy = fopen("psy.txt", "a+");
-  fprintf(fpTemps, "%f\n", pp->bs->batch[0]);
-  fprintf(fpX, "%f\n", pp->bs->batch[1]);
-  fprintf(fpY, "%f\n", pp->bs->batch[2]);
-  fprintf(fpZ, "%f\n", pp->bs->batch[3]);
-  fprintf(fpPsy, "%f\n", pp->bs->batch[4]);
-  fclose(fpTemps);
-  fclose(fpX);
-  fclose(fpY);
-  fclose(fpZ);
-  fclose(fpPsy);
+
+PrinterStock *initialize_printer_stock() {
+  PrinterStock *stock = (PrinterStock *) malloc(sizeof(PrinterStock));
+  stock->params = NULL;
+  return stock;
+}
+
+void set_printer_stock(PrinterStock *stock, PrinterParameters *params) {
+  stock->params = initialize_printer_params(params->out_stream, 
+                    params->payload_type, params->file_path, params->open_mode, 
+                    params->payload, params->payload_len);
+}
+
+void free_printer_stock(PrinterStock *stock) {
+  free_printer_params(stock->params);
+  free(stock);
+}
+
+
+void *copy_buf(const void *buf, size_t buf_len) {
+  void *copy = malloc(buf_len);
+  memcpy(copy, buf, buf_len);
+  return copy; 
+}
+
+char *copy_str(const char *src) {
+  size_t str_len = strlen(src);
+  void *copy = copy_buf(src, sizeof(char) * (str_len + 1));
+  return (char *) copy;
 }

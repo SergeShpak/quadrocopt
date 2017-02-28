@@ -3,8 +3,11 @@
 
 #include <stddef.h>
 
+#include "printer.h"
+
 typedef struct _BatchStock BatchStock;
 typedef struct _SenderStock SenderStock;
+typedef struct _PrinterParamsCollection PrinterParamsCollection;
 
 struct _BatchStock {
   float *batch;
@@ -32,5 +35,14 @@ void add_second_batch_to_sender_stock(SenderStock *s,
                                       float *batch, size_t batch_len);
 void clean_sender_stock(SenderStock *s);
 void free_sender_stock(SenderStock *s);
+
+
+struct _PrinterParamsCollection {
+  PrinterParameters *results_params;
+};
+
+PrinterParamsCollection *initialize_printer_params_collection(
+                                          PrinterParameters *results_params);
+void free_printer_params_collection(PrinterParamsCollection *collection);
 
 #endif

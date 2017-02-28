@@ -29,7 +29,7 @@ char *server_addr_str;
 ServerAddress *server_addr = NULL;
 NetworkInterface *net_interface = NULL;
 BatchStock *listener_stock = NULL;
-BatchStock *printer_stock = NULL;
+PrinterStock *printer_stock = NULL;
 SenderStock *sender_stock = NULL;
 pthread_t *sender = NULL;
 pthread_barrier_t *init_barrier = NULL;
@@ -47,45 +47,58 @@ CalculatorData *calc_data = NULL;
 ThreadConditionPack *calc_to_sender_signal;
 ThreadConditionPack *sender_signal;
 
-char *file_out_name = "out.txt";
-char *file_in_name = "in.txt";
+PrinterParamsCollection *printer_params_collection = NULL;
+
+const char *fname_received_params = "out.txt";
+const char *fname_sent_params = "in.txt";
+
+const char *fname_time = "time.txt";
+const char *fname_x = "xcoord.txt";
+const char *fname_y = "ycoord.txt";
+const char *fname_z = "zcoord.txt";
+const char *fname_psy = "psy.txt";
+const char *fname_results = "results.txt";
 
 // Static functions declarations
 
-void initialize_globals();
-void initialize_mutexes();
+void initialize_globals(void);
+void initialize_mutexes(void);
 ThreadConditionPack *initialize_thread_cond_pack(int init_verif_var);
-void initialize_barriers();
-void initialize_condition_packs();
+void initialize_barriers(void);
+void initialize_condition_packs(void);
+PrinterParamsCollection *create_printer_params_collection();
 pthread_cond_t *init_cond_var(pthread_condattr_t *attr);
 pthread_mutex_t *init_mutex(pthread_mutexattr_t *mu_attr);
-void free_mutexes();
+void create_output_files(void);
+void create_file(const char *file_name);
+void free_mutexes(void);
 void free_mutex(pthread_mutex_t*);
 void *run_listener_callback(void*);
 void *run_sender_callback(void*);
 void *run_printer_callback(void*);
-void create_listener();
-int start_listener();
-void spawn_workers();
-void read_listener_batch();
-void wait_listener();
-void signal_listener();
+void create_listener(void);
+int start_listener(void);
+void spawn_workers(void);
+void read_listener_batch(void);
+void wait_listener(void);
+void signal_listener(void);
 
-void do_client_calculations();
+void do_client_calculations(void);
 
-int start_sender();
-void fill_sender_stock();
-void create_sender();
-void calculate_res();
-void wait_sender();
-void signal_sender();
+int start_sender(void);
+void fill_sender_stock(void);
+void create_sender(void);
+void calculate_res(void);
+void wait_sender(void);
+void signal_sender(void);
 
-void create_printer();
-int start_printer();
-void write_to_printer_stock();
-void calculate_ref();
-void get_next_step();
-float *get_u();
+void create_printer(void);
+int start_printer(void);
+void print_calc_data(CalculatorData *calc_data);
+float *get_calc_data_for_printer(CalculatorData *calc_data, size_t *data_len);
+void calculate_ref(void);
+void get_next_step(void);
+float *get_u(void);
 float *normalize_vector(float *vec, size_t len, float cur_time);
 
 // End of static functions declarations
@@ -98,10 +111,6 @@ int main(int argc, char **argv) {
   server_addr_str = argv[1];
   initialize_globals();
   spawn_workers();
-  FILE *f = fopen(file_out_name, "w");
-  fclose(f);
-  f = fopen(file_in_name, "w");
-  fclose(f);
   calculate_ref();
   do_client_calculations();
   return 0;
@@ -113,7 +122,8 @@ void initialize_globals() {
   net_interface->server_addr = server_addr;
   listener_stock = initialize_batch_stock();
   sender_stock = initialize_sender_stock();
-  printer_stock = initialize_batch_stock();
+  printer_stock = initialize_printer_stock();
+  printer_params_collection = create_printer_params_collection();
   fill_sender_stock();
   calc_data = initialize_calc_data(0, 10);
   initialize_mutexes();
@@ -153,6 +163,14 @@ ThreadConditionPack *initialize_thread_cond_pack(int init_verif_var) {
   return pack;
 }
 
+PrinterParamsCollection *create_printer_params_collection() {
+  PrinterParameters *results_params = 
+    initialize_printer_params(FOUT, FLOAT_ARR, fname_results, "a+", NULL, -1);
+  PrinterParamsCollection *collection = 
+                        initialize_printer_params_collection(results_params);
+  return collection;
+}
+
 pthread_mutex_t *init_mutex(pthread_mutexattr_t *mu_attr) {
   pthread_mutex_t *mu = (pthread_mutex_t*) malloc(sizeof(pthread_mutex_t));
   pthread_mutex_init(mu, mu_attr);
@@ -172,21 +190,38 @@ void free_mutex(pthread_mutex_t *mu) {
   free(mu);
 }
 
-void spawn_workers() {
+void spawn_workers(void) {
   create_listener();
   create_sender();
   create_printer();
   pthread_barrier_wait(init_barrier);
 }
 
-void create_listener() {  
+void create_listener(void) {  
   int status = start_listener();
   if (status) {
     exit_error("Could not start the sender");
   }
 }
 
-int start_listener() {
+void create_output_files(void) {
+#ifdef DEBUG
+  create_file(fname_received_params);
+  create_file(fname_sent_params);
+#endif
+  create_file(fname_time);
+  create_file(fname_x);
+  create_file(fname_y);
+  create_file(fname_z);
+  create_file(fname_psy);
+}
+
+void create_file(const char *file_name) {
+  FILE *fp = fopen(file_name, "w");
+  fclose(fp);
+}
+
+int start_listener(void) {
   int status;
   ListenerMutexSet *lms = create_listener_mutex_set(io_mu);
   ListenerThreadCondPackets *ltcp = initialize_cond_packs(listener_signal, 
@@ -260,7 +295,7 @@ void *run_sender_callback(void *sp) {
 void *run_printer_callback(void *pp) {
   PrinterPack *printer_pack = (PrinterPack *) pp;
   pthread_barrier_wait(init_barrier);
-  run_printer(printer_pack);
+  run_printer(printer_pack, create_output_files);
   return NULL;
 }
 
@@ -274,12 +309,14 @@ void signal_listener() {
 
 void read_listener_batch() {
   listener_batch = get_batch_from_stock(listener_stock, &listener_batch_len);  
+#ifdef DEBUG
   FILE *f = fopen(file_in_name, "a+");
   for (int i = 0; i < listener_batch_len; i++) {
     fprintf(f, "%f ", listener_batch[i]); 
   }
   fprintf(f, "\n");
   fclose(f);
+#endif
   clean_batch_stock(listener_stock);
 }
 
@@ -303,10 +340,12 @@ void signal_sender() {
 void do_client_calculations() {
   while(calc_data->curr_time <= calc_data->time_end) {
     get_next_step();
-    calc_data->curr_time += calc_data->step;    
-    wait_with_pack(printer_signal);
-    write_to_printer_stock();
-    signal_with_pack(calc_to_printer_signal);
+    calc_data->curr_time += calc_data->step;  
+    print_calc_data(calc_data);  
+    // TODO: delete below
+    //wait_with_pack(printer_signal);
+    //write_to_printer_stock();
+    //signal_with_pack(calc_to_printer_signal);
   }
 }
 
@@ -323,15 +362,26 @@ void fill_sender_stock() {
                                   init_second_batch, init_second_batch_len);
 }
 
-void write_to_printer_stock() {
-  float *new_printer_batch = (float *) malloc(sizeof(float) * 5);
-  new_printer_batch[0] = calc_data->curr_time;
-  new_printer_batch[1] = calc_data->Vx;
-  new_printer_batch[2] = calc_data->Vy;
-  new_printer_batch[3] = calc_data->Vz;
-  new_printer_batch[4] = calc_data->Vpsy;
-  printer_stock->batch = new_printer_batch;
-  printer_stock->batch_len = 5;
+void print_calc_data(CalculatorData *calc_data) {
+  size_t payload_len;
+  float *payload = get_calc_data_for_printer(calc_data, &payload_len);
+  size_t payload_len_bytes = payload_len * sizeof(float);
+  wait_with_pack(printer_signal);
+  printer_params_collection->results_params->payload = (void *) payload;
+  printer_params_collection->results_params->payload_len = payload_len_bytes;
+  signal_with_pack(calc_to_printer_signal); 
+}
+
+float *get_calc_data_for_printer(CalculatorData *calc_data, size_t *data_len) {
+  size_t len = 5;
+  float *payload = (float *) malloc(sizeof(float) * len);
+  payload[0] = calc_data->curr_time;
+  payload[1] = calc_data->Vx;
+  payload[2] = calc_data->Vy;
+  payload[3] = calc_data->Vz;
+  payload[4] = calc_data->Vpsy;
+  *data_len = len;
+  return payload; 
 }
 
 void calculate_ref() {
@@ -428,12 +478,14 @@ float *get_u(float *payload) {
   free(listener_batch);
   listener_batch = NULL;
   signal_with_pack(calc_to_listener_signal);
+#ifdef DEBUG
   FILE *in = fopen(file_in_name, "a+");
   for (int i = 0; i < 4; i++) {
     fprintf(in, "%f ", u[i]); 
   }
   fprintf(in, "\n");
   fclose(in);
+#endif
   return u; 
 }
 
