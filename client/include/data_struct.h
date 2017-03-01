@@ -38,7 +38,7 @@ void free_sender_stock(SenderStock *s);
 
 
 struct _PrinterParamsCollection {
-  PrinterParameters *results_params;
+  PrinterParameters *results_params; 
 };
 
 PrinterParamsCollection *initialize_printer_params_collection(

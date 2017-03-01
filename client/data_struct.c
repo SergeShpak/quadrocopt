@@ -73,3 +73,17 @@ void free_sender_stock(SenderStock *s) {
   clean_sender_stock(s);
   free(s);
 }
+
+
+PrinterParamsCollection *initialize_printer_params_collection(
+                                          PrinterParameters *results_params) {
+  PrinterParamsCollection *coll = 
+          (PrinterParamsCollection *) malloc(sizeof(PrinterParamsCollection));
+  coll->results_params = results_params;
+  return coll;
+}
+
+void free_printer_params_collection(PrinterParamsCollection *coll) {
+  free_printer_params(coll->results_params);
+  free(coll);
+}

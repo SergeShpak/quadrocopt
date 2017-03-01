@@ -1,6 +1,7 @@
 **/build/
 **/bin/
 **/profiling/
+**/.ropeproject/
 **/*.txt
 **/*.sh
 **/*.swp

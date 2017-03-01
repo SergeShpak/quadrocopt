@@ -98,7 +98,7 @@ void print_calc_data(CalculatorData *calc_data);
 float *get_calc_data_for_printer(CalculatorData *calc_data, size_t *data_len);
 void calculate_ref(void);
 void get_next_step(void);
-float *get_u(void);
+float *get_u(float *payload);
 float *normalize_vector(float *vec, size_t len, float cur_time);
 
 // End of static functions declarations
@@ -309,14 +309,6 @@ void signal_listener() {
 
 void read_listener_batch() {
   listener_batch = get_batch_from_stock(listener_stock, &listener_batch_len);  
-#ifdef DEBUG
-  FILE *f = fopen(file_in_name, "a+");
-  for (int i = 0; i < listener_batch_len; i++) {
-    fprintf(f, "%f ", listener_batch[i]); 
-  }
-  fprintf(f, "\n");
-  fclose(f);
-#endif
   clean_batch_stock(listener_stock);
 }
 
@@ -369,6 +361,7 @@ void print_calc_data(CalculatorData *calc_data) {
   wait_with_pack(printer_signal);
   printer_params_collection->results_params->payload = (void *) payload;
   printer_params_collection->results_params->payload_len = payload_len_bytes;
+  printer_stock->params = printer_params_collection->results_params;
   signal_with_pack(calc_to_printer_signal); 
 }
 
@@ -479,7 +472,7 @@ float *get_u(float *payload) {
   listener_batch = NULL;
   signal_with_pack(calc_to_listener_signal);
 #ifdef DEBUG
-  FILE *in = fopen(file_in_name, "a+");
+  FILE *in = fopen(fname_received_params, "a+");
   for (int i = 0; i < 4; i++) {
     fprintf(in, "%f ", u[i]); 
   }

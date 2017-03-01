@@ -8,7 +8,8 @@ void print_to_file(char *str, char *file_path, char *file_mode);
 void print_to_stream(char *str, FILE *stream);
 
 void print(PrinterStock *stock, PrinterPack *pack) {
-  PrinterParameters *params = stock->params;
+  wait_with_pack(pack->cond_packs->calc_to_printer_signal);
+  PrinterParameters *params = copy_printer_params(stock->params);
   signal_with_pack(pack->cond_packs->printer_signal);
   char *str_to_print;
   switch(params->payload_type) {
@@ -34,16 +35,14 @@ void print(PrinterStock *stock, PrinterPack *pack) {
       print_to_file(str_to_print, params->file_path, params->open_mode);
       break;
   }
-  free(params);
+  free_printer_params(params);
   return;
 }
 
 void run_printer(PrinterPack *pp, void (*create_output_files)(void)) {
   create_output_files();
   while(1) {
-    wait_with_pack(pp->cond_packs->calc_to_printer_signal);
-    write_to_files(pp);
-    signal_with_pack(pp->cond_packs->printer_signal); 
+    print(pp->ps, pp);
   }
 }
 

@@ -9,11 +9,11 @@ void *copy_buf(const void *buf, size_t buf_len);
 char *copy_str(const char *src);
 
 PrinterPack *initialize_printer_pack(PrinterMutexSet *mu_set, 
-                        PrinterThreadCondPackets *cond_packs, BatchStock *bs) {
+                      PrinterThreadCondPackets *cond_packs, PrinterStock *ps) {
   PrinterPack *pp = (PrinterPack *) malloc(sizeof(PrinterPack));
   pp->mu_set = mu_set;
   pp->cond_packs = cond_packs;
-  pp->bs = bs;
+  pp->ps = ps;
   return pp;
 }
 
@@ -80,6 +80,18 @@ void free_printer_params(PrinterParameters *params) {
   free(params->open_mode);
   free(params->payload);
   free(params);
+}
+
+PrinterParameters *copy_printer_params(PrinterParameters *params) {
+  PrinterParameters *dupl_params = 
+                      (PrinterParameters *) malloc(sizeof(PrinterParameters));
+  dupl_params->payload_type = params->payload_type;
+  dupl_params->out_stream = params->out_stream;
+  dupl_params->payload_len = params->payload_len;
+  dupl_params->payload = copy_buf(params->payload, params->payload_len);
+  dupl_params->file_path = copy_str(params->file_path);
+  dupl_params->open_mode = copy_str(params->open_mode);
+  return dupl_params; 
 }
 
 

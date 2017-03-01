@@ -4,7 +4,6 @@
 #include <stdio.h>
 
 #include "threading_stuff.h"
-#include "data_struct.h"
 
 typedef enum _OutputStream OutputStream;
 typedef enum _ParametersPayloadType ParametersPayloadType;
@@ -78,6 +77,7 @@ PrinterParameters *initialize_printer_params(OutputStream out_stream,
                     ParametersPayloadType payload_type, const char *file_path, 
                     char *open_mode, void *payload, int payload_len);
 void free_printer_params(PrinterParameters *printer_params);
+PrinterParameters *copy_printer_params(PrinterParameters *params);
 
 
 struct _PrinterStock {
