@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stddef.h>
 
+#include "include/constants.h"
 #include "include/data_struct.h"
 #include "include/utils.h"
 
@@ -87,3 +88,60 @@ void free_printer_params_collection(PrinterParamsCollection *coll) {
   free_printer_params(coll->results_params);
   free(coll);
 }
+
+
+ThreadConditionPacksCollection *initialize_thread_cond_packs_collection (
+                                    ThreadConditionPack *sender_to_signal,
+                                    ThreadConditionPack *sender_from_signal,
+                                    ThreadConditionPack *listener_to_signal,
+                                    ThreadConditionPack *listener_from_signal,
+                                    ThreadConditionPack *printer_to_signal,
+                                    ThreadConditionPack *printer_from_signal) {
+  ThreadConditionPacksCollection *collection = 
+                                  (ThreadConditionPacksCollection *) malloc(
+                                      sizeof(ThreadConditionPacksCollection));
+  collection->sender_to_signal = sender_to_signal;
+  collection->sender_from_signal = sender_from_signal;
+  collection->listener_from_signal = listener_from_signal;
+  collection->listener_to_signal = listener_to_signal;
+  collection->printer_to_signal = printer_to_signal;
+  collection->printer_from_signal = printer_from_signal;
+  return collection;
+}
+
+void free_thread_cond_packs_collection(
+                                ThreadConditionPacksCollection *collection) {
+  free_thread_cond_pack(collection->sender_to_signal);
+  free_thread_cond_pack(collection->sender_from_signal);
+  free_thread_cond_pack(collection->listener_to_signal);
+  free_thread_cond_pack(collection->listener_from_signal);
+  free_thread_cond_pack(collection->printer_to_signal);
+  free_thread_cond_pack(collection->printer_from_signal);
+  free(collection);
+}
+
+
+WorkersCollection *initialize_workers_collection() {
+  WorkersCollection *collection = 
+                      (WorkersCollection *) malloc(sizeof(WorkersCollection));
+  collection->listener = NULL;
+  collection->sender = NULL;
+  collection->printer = NULL;
+  collection->workers = NULL; 
+  return collection;
+}
+
+int add_to_workers_collection(pthread_t *worker, WorkersCollection *coll, 
+                              pthread_t **dst) {
+  if (NULL != *dst) {
+    return -1;
+  }
+  *dst = worker;
+  add_to_collection_list(coll->workers, worker);
+  return 0;
+}
+
+void free_workers_collection(WorkersCollection *collection) {
+  free_collection_list(collection->workers, free);
+  free(collection);
+}   

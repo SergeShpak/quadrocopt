@@ -19,22 +19,15 @@
 #include "include/nrutil.h"
 
 pthread_mutex_t *io_mu = NULL;
-ThreadConditionPack *sender_signal = NULL;
-ThreadConditionPack *calc_to_sender_signal = NULL;
-ThreadConditionPack *listener_signal = NULL;
-ThreadConditionPack *calc_to_listener_signal = NULL;
-ThreadConditionPack *printer_signal = NULL;
-ThreadConditionPack *calc_to_printer_signal = NULL;
+ThreadConditionPacksCollection *thread_cond_packs = NULL;
 char *server_addr_str;
 ServerAddress *server_addr = NULL;
 NetworkInterface *net_interface = NULL;
 BatchStock *listener_stock = NULL;
 PrinterStock *printer_stock = NULL;
 SenderStock *sender_stock = NULL;
-pthread_t *sender = NULL;
+WorkersCollection *workers = NULL;
 pthread_barrier_t *init_barrier = NULL;
-float *printer_batch;
-float printer_batch_len;
 float *listener_batch = NULL;
 size_t listener_batch_len;
 float *sender_first_batch = NULL;
@@ -43,9 +36,6 @@ float *sender_second_batch = NULL;
 size_t sender_second_batch_len;
 
 CalculatorData *calc_data = NULL;
-
-ThreadConditionPack *calc_to_sender_signal;
-ThreadConditionPack *sender_signal;
 
 PrinterParamsCollection *printer_params_collection = NULL;
 
@@ -80,8 +70,6 @@ void create_listener(void);
 int start_listener(void);
 void spawn_workers(void);
 void read_listener_batch(void);
-void wait_listener(void);
-void signal_listener(void);
 
 void do_client_calculations(void);
 
@@ -89,8 +77,6 @@ int start_sender(void);
 void fill_sender_stock(void);
 void create_sender(void);
 void calculate_res(void);
-void wait_sender(void);
-void signal_sender(void);
 
 void create_printer(void);
 int start_printer(void);
@@ -124,11 +110,12 @@ void initialize_globals() {
   sender_stock = initialize_sender_stock();
   printer_stock = initialize_printer_stock();
   printer_params_collection = create_printer_params_collection();
-  fill_sender_stock();
+  workers = initialize_workers_collection();
   calc_data = initialize_calc_data(0, 10);
   initialize_mutexes();
   initialize_barriers();
   initialize_condition_packs();
+  fill_sender_stock();
 }
 
 void initialize_mutexes() {
@@ -143,12 +130,16 @@ void initialize_barriers() {
 }
 
 void initialize_condition_packs() {
-  sender_signal = initialize_thread_cond_pack(1);
-  calc_to_sender_signal = initialize_thread_cond_pack(0);
-  listener_signal = initialize_thread_cond_pack(0);
-  calc_to_listener_signal = initialize_thread_cond_pack(1);
-  printer_signal = initialize_thread_cond_pack(1);
-  calc_to_printer_signal = initialize_thread_cond_pack(0);
+  ThreadConditionPack *sender_to_signal = initialize_thread_cond_pack(1);
+  ThreadConditionPack *sender_from_signal = initialize_thread_cond_pack(0);
+  ThreadConditionPack *listener_to_signal = initialize_thread_cond_pack(0);
+  ThreadConditionPack *listener_from_signal = initialize_thread_cond_pack(1);
+  ThreadConditionPack *printer_to_signal = initialize_thread_cond_pack(0);
+  ThreadConditionPack *printer_from_signal = initialize_thread_cond_pack(1);
+  thread_cond_packs = initialize_thread_cond_packs_collection(
+                                      sender_to_signal, sender_from_signal,
+                                      listener_to_signal, listener_from_signal,
+                                      printer_to_signal, printer_from_signal);
 }
 
 ThreadConditionPack *initialize_thread_cond_pack(int init_verif_var) {
@@ -224,11 +215,13 @@ void create_file(const char *file_name) {
 int start_listener(void) {
   int status;
   ListenerMutexSet *lms = create_listener_mutex_set(io_mu);
-  ListenerThreadCondPackets *ltcp = initialize_cond_packs(listener_signal, 
-                                                      calc_to_listener_signal);
+  ListenerThreadCondPackets *ltcp = initialize_cond_packs(
+                                    thread_cond_packs->listener_from_signal, 
+                                    thread_cond_packs->listener_to_signal);
   int sd = net_interface->sd_in;
   ListenerPack *lp = initialize_listener_pack(sd, lms, ltcp, listener_stock);
   pthread_t *listener_thread = (pthread_t *) malloc(sizeof(pthread_t));
+  add_to_workers_collection(listener_thread, workers, &(workers->listener));
   pthread_attr_t attr;
   pthread_attr_init(&attr);
   status = pthread_create(listener_thread, &attr, &run_listener_callback,
@@ -244,10 +237,12 @@ void create_sender() {
 }
 
 int start_sender() {
-  sender = (pthread_t *) malloc(sizeof(pthread_t));
+  pthread_t *sender = (pthread_t *) malloc(sizeof(pthread_t));
+  add_to_workers_collection(sender, workers, &(workers->sender));
   SenderMutexSet *mu_set = initialize_sender_mutex_set(io_mu);
-  SenderThreadCondPacks *cond_packs = 
-            initialize_sender_cond_packs(sender_signal, calc_to_sender_signal);
+  SenderThreadCondPacks *cond_packs = initialize_sender_cond_packs(
+                                      thread_cond_packs->sender_from_signal, 
+                                      thread_cond_packs->sender_to_signal);
   SenderPack *pack = initialize_sender_pack(net_interface->sd_out, server_addr, 
                                             sender_stock, mu_set, cond_packs);
   pthread_attr_t attr;
@@ -266,12 +261,13 @@ void create_printer() {
 
 int start_printer() {
   pthread_t *printer = (pthread_t *) malloc(sizeof(pthread_t));
+  add_to_workers_collection(printer, workers, &(workers->printer));
   pthread_attr_t attr;
   pthread_attr_init(&attr);
   PrinterMutexSet *mu_set = initialize_printer_mu_set(io_mu);
-  PrinterThreadCondPackets *cond_packs = 
-                        initialize_printer_thread_cond_packs(printer_signal, 
-                        calc_to_printer_signal);
+  PrinterThreadCondPackets *cond_packs = initialize_printer_thread_cond_packs(
+                                        thread_cond_packs->printer_from_signal, 
+                                        thread_cond_packs->printer_to_signal);
   PrinterPack *pack = 
                     initialize_printer_pack(mu_set, cond_packs, printer_stock);
   int status = 
@@ -299,14 +295,6 @@ void *run_printer_callback(void *pp) {
   return NULL;
 }
 
-void wait_listener() {
-  wait_with_pack(listener_signal);
-}
-
-void signal_listener() {
-  signal_with_pack(calc_to_listener_signal);
-}
-
 void read_listener_batch() {
   listener_batch = get_batch_from_stock(listener_stock, &listener_batch_len);  
   clean_batch_stock(listener_stock);
@@ -319,14 +307,6 @@ void calculate_res() {
                                 sender_first_batch, sender_first_batch_len);
   add_second_batch_to_sender_stock(sender_stock,
                                 sender_second_batch, sender_second_batch_len);
-}
-
-void wait_sender() {
-  wait_with_pack(sender_signal);
-}
-
-void signal_sender() {
-  signal_with_pack(calc_to_sender_signal);
 }
 
 void do_client_calculations() {
@@ -358,11 +338,11 @@ void print_calc_data(CalculatorData *calc_data) {
   size_t payload_len;
   float *payload = get_calc_data_for_printer(calc_data, &payload_len);
   size_t payload_len_bytes = payload_len * sizeof(float);
-  wait_with_pack(printer_signal);
+  wait_with_pack(thread_cond_packs->printer_from_signal);
   printer_params_collection->results_params->payload = (void *) payload;
   printer_params_collection->results_params->payload_len = payload_len_bytes;
   printer_stock->params = printer_params_collection->results_params;
-  signal_with_pack(calc_to_printer_signal); 
+  signal_with_pack(thread_cond_packs->printer_to_signal); 
 }
 
 float *get_calc_data_for_printer(CalculatorData *calc_data, size_t *data_len) {
@@ -458,19 +438,19 @@ float *get_u(float *payload) {
   float *second_batch = (float *) malloc(second_bytes_size);
   memcpy(first_batch, payload, first_bytes_size);
   memcpy(second_batch, payload + 6, second_bytes_size);
-  wait_with_pack(sender_signal);
+  wait_with_pack(thread_cond_packs->sender_from_signal);
   add_first_batch_to_sender_stock(sender_stock, first_batch, 6);
   add_second_batch_to_sender_stock(sender_stock, second_batch, 7);
-  signal_with_pack(calc_to_sender_signal);
+  signal_with_pack(thread_cond_packs->sender_to_signal);
   free(first_batch);
   free(second_batch);
-  wait_with_pack(listener_signal);
+  wait_with_pack(thread_cond_packs->listener_from_signal);
   read_listener_batch();
   float *u = (float *) malloc(sizeof(float) * 4);
   memcpy(u, listener_batch, sizeof(float) * 4);
   free(listener_batch);
   listener_batch = NULL;
-  signal_with_pack(calc_to_listener_signal);
+  signal_with_pack(thread_cond_packs->listener_to_signal);
 #ifdef DEBUG
   FILE *in = fopen(fname_received_params, "a+");
   for (int i = 0; i < 4; i++) {

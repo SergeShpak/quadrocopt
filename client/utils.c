@@ -4,6 +4,34 @@
 #include <pthread.h>
 #include <unistd.h>
 
+#include "include/utils.h"
+
+CollectionList *initialize_collection_list(void *el) {
+  CollectionList *coll = (CollectionList *) malloc(sizeof(CollectionList));
+  coll->next = NULL; 
+  return coll;
+}
+
+void add_to_collection_list(CollectionList *coll_list, void *el) {
+  if (NULL == coll_list->next) {
+    CollectionList *new_tail = initialize_collection_list(el);
+    coll_list->next = new_tail;
+    return;
+  }
+  add_to_collection_list(coll_list->next, el);
+}
+
+void free_collection_list(CollectionList *coll_list, 
+                          void (*free_func)(void *el)) {
+  CollectionList *curr_node = coll_list;
+  while(NULL != curr_node) {
+    free_func(curr_node->el);
+    curr_node = curr_node->next;
+  }
+  free(coll_list);
+}
+
+
 void exit_error(char *err_msg) {
   fprintf(stderr, "%s", err_msg);
   exit(1); 

@@ -4,10 +4,14 @@
 #include <stddef.h>
 
 #include "printer.h"
+#include "utils.h"
 
 typedef struct _BatchStock BatchStock;
 typedef struct _SenderStock SenderStock;
 typedef struct _PrinterParamsCollection PrinterParamsCollection;
+typedef struct _ThreadConditionPacksCollection ThreadConditionPacksCollection;
+typedef struct _WorkersCollection WorkersCollection;
+
 
 struct _BatchStock {
   float *batch;
@@ -44,5 +48,38 @@ struct _PrinterParamsCollection {
 PrinterParamsCollection *initialize_printer_params_collection(
                                           PrinterParameters *results_params);
 void free_printer_params_collection(PrinterParamsCollection *collection);
+
+
+struct _ThreadConditionPacksCollection {
+  ThreadConditionPack *sender_from_signal;
+  ThreadConditionPack *sender_to_signal;
+  ThreadConditionPack *listener_to_signal;
+  ThreadConditionPack *listener_from_signal;
+  ThreadConditionPack *printer_from_signal;
+  ThreadConditionPack *printer_to_signal;
+};
+
+ThreadConditionPacksCollection *initialize_thread_cond_packs_collection(
+                                    ThreadConditionPack *sender_to_signal,
+                                    ThreadConditionPack *sender_from_signal,
+                                    ThreadConditionPack *listener_to_signal,
+                                    ThreadConditionPack *listener_from_signal,
+                                    ThreadConditionPack *printer_to_signal,
+                                    ThreadConditionPack *printer_from_signal);
+void free_thread_cond_packs_collection(
+                                  ThreadConditionPacksCollection *collection);
+
+
+struct _WorkersCollection {
+  pthread_t *listener;
+  pthread_t *sender;
+  pthread_t *printer;  
+  CollectionList *workers;  
+};
+
+WorkersCollection *initialize_workers_collection();
+int add_to_workers_collection(pthread_t *worker, WorkersCollection *coll, 
+                              pthread_t **dst);
+void free_workers_collection(WorkersCollection *collection);
 
 #endif
