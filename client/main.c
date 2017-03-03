@@ -1,3 +1,5 @@
+#include <errno.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,6 +19,7 @@
 #include "include/io_stuff.h"
 #include "include/printer.h"
 #include "include/nrutil.h"
+#include "include/signal_handling.h"
 
 pthread_mutex_t *io_mu = NULL;
 ThreadConditionPacksCollection *thread_cond_packs = NULL;
@@ -52,6 +55,7 @@ const char *fname_results = "results.txt";
 // Static functions declarations
 
 void initialize_globals(void);
+void set_signals(void);
 void initialize_mutexes(void);
 ThreadConditionPack *initialize_thread_cond_pack(int init_verif_var);
 void initialize_barriers(void);
@@ -87,6 +91,9 @@ void get_next_step(void);
 float *get_u(float *payload);
 float *normalize_vector(float *vec, size_t len, float cur_time);
 
+void wait_workers_to_finish(void);
+void stop_worker(pthread_t *worker);
+
 // End of static functions declarations
 
 int main(int argc, char **argv) {
@@ -96,9 +103,11 @@ int main(int argc, char **argv) {
   }
   server_addr_str = argv[1];
   initialize_globals();
+  set_signals();
   spawn_workers();
   calculate_ref();
   do_client_calculations();
+  wait_workers_to_finish();
   return 0;
 }
 
@@ -111,11 +120,19 @@ void initialize_globals() {
   printer_stock = initialize_printer_stock();
   printer_params_collection = create_printer_params_collection();
   workers = initialize_workers_collection();
-  calc_data = initialize_calc_data(0, 10);
+  calc_data = initialize_calc_data(0, 0.1);
   initialize_mutexes();
   initialize_barriers();
   initialize_condition_packs();
   fill_sender_stock();
+}
+
+void set_signals(void) {
+  if (SIG_ERR == signal(SIGUSR1, sig_handler)) {
+    pthread_mutex_lock(io_mu);
+    printf("Could not register signal handler: %d\n", errno);
+    pthread_mutex_unlock(io_mu);
+  }
 }
 
 void initialize_mutexes() {
@@ -132,8 +149,8 @@ void initialize_barriers() {
 void initialize_condition_packs() {
   ThreadConditionPack *sender_to_signal = initialize_thread_cond_pack(1);
   ThreadConditionPack *sender_from_signal = initialize_thread_cond_pack(0);
-  ThreadConditionPack *listener_to_signal = initialize_thread_cond_pack(0);
-  ThreadConditionPack *listener_from_signal = initialize_thread_cond_pack(1);
+  ThreadConditionPack *listener_to_signal = initialize_thread_cond_pack(1);
+  ThreadConditionPack *listener_from_signal = initialize_thread_cond_pack(0);
   ThreadConditionPack *printer_to_signal = initialize_thread_cond_pack(0);
   ThreadConditionPack *printer_from_signal = initialize_thread_cond_pack(1);
   thread_cond_packs = initialize_thread_cond_packs_collection(
@@ -469,4 +486,30 @@ float *normalize_vector(float *vec, size_t len, float cur_time) {
   }
   new_vec[len] = cur_time;
   return new_vec;
+}
+
+void wait_workers_to_finish() {
+#ifdef DEBUG
+  pthread_mutex_lock(io_mu);
+  printf("%s\n", "Started cleaning");
+  pthread_mutex_unlock(io_mu);
+#endif  
+  CollectionList *curr_worker = workers->workers;
+  pthread_t *curr_thread;  
+  while(NULL != curr_worker) {
+    curr_thread = (pthread_t *) curr_worker->el;
+    stop_worker(curr_thread);
+    pthread_join(*curr_thread, NULL);
+    curr_worker = curr_worker->next;
+  }
+#ifdef DEBUG
+  pthread_mutex_lock(io_mu);
+  printf("%s\n", "All threads joined");
+  pthread_mutex_unlock(io_mu);
+#endif
+  return;
+}
+
+void stop_worker(pthread_t *worker) {
+  pthread_kill(*worker, SIGUSR1); 
 }

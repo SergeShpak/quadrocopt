@@ -4,7 +4,15 @@
 #include <pthread.h>
 #include <stdarg.h>
 
+typedef enum _ThreadId ThreadId;
 typedef struct _CollectionList CollectionList;
+
+enum _ThreadId {
+  MAIN_THREAD,
+  LISTENER_THREAD,
+  SENDER_THREAD,
+  PRINTER_THREAD
+};
 
 struct _CollectionList {
   void *el;

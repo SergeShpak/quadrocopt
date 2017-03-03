@@ -46,6 +46,10 @@ void run_printer(PrinterPack *pp, void (*create_output_files)(void)) {
   }
 }
 
+void stop_printer(void) {
+  pthread_exit(NULL);
+}
+
 void print_to_file(char *str, char *file_path, char *file_mode) {
   FILE *fp = fopen(file_path, file_mode);
   print_to_stream(str, fp);

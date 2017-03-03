@@ -8,7 +8,8 @@
 
 CollectionList *initialize_collection_list(void *el) {
   CollectionList *coll = (CollectionList *) malloc(sizeof(CollectionList));
-  coll->next = NULL; 
+  coll->next = NULL;
+  coll->el = el;
   return coll;
 }
 

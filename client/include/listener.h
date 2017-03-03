@@ -43,5 +43,6 @@ void free_listener_pack(ListenerPack *lp);
 void free_listener_mutex_set(ListenerMutexSet *mu_set);
 
 void run_listener(ListenerPack *lp);
+void stop_listener(void);
 
 #endif

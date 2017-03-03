@@ -27,6 +27,10 @@ void run_listener(ListenerPack *lp) {
   }
 }
 
+void stop_listener(void) {
+  pthread_exit(NULL); 
+}
+
 void receive_packet(ListenerPack *lp, char *buf) {
   int bytes_recv;
   struct sockaddr remote; 

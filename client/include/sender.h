@@ -43,4 +43,6 @@ SenderThreadCondPacks *initialize_sender_cond_packs(
 void free_sender_cond_packs(SenderThreadCondPacks *stcp);
 
 void run_sender(SenderPack *sp);
+void stop_sender(void);
+
 #endif

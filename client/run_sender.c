@@ -49,6 +49,10 @@ void run_sender(SenderPack *sp) {
   } 
 }
 
+void stop_sender(void) {
+  pthread_exit(NULL);
+}
+
 void send_calcs(SenderPack *sp, float *first_batch, size_t first_batch_len, 
                 float *second_batch, size_t second_batch_len) {
   Packet *first_pack = gen_packet_from_floats(first_batch, first_batch_len);

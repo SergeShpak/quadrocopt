@@ -3,7 +3,7 @@
 
 #define SERVER_TO_CLIENT_PARAMS_COUNT 4
 #define CLIENT_TO_SERVER_PARAMS_COUNT 7
-#define NSTEP                         1000 
+#define NSTEP                         10 
 #define NVAR                          12
 #define MAXBUF                        1024 * 1024
 #define SERVER_IN_FIRST_PORT          43567

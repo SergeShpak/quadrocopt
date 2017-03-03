@@ -137,6 +137,10 @@ int add_to_workers_collection(pthread_t *worker, WorkersCollection *coll,
     return -1;
   }
   *dst = worker;
+  if (NULL == coll->workers) {
+    coll->workers = initialize_collection_list(worker);
+    return 0; 
+  }
   add_to_collection_list(coll->workers, worker);
   return 0;
 }

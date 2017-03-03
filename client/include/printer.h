@@ -91,5 +91,6 @@ void free_printer_stock(PrinterStock *stock);
 
 void print(PrinterStock *stock, PrinterPack *pack);
 void run_printer(PrinterPack *pp, void (*create_output_files)(void));
+void stop_printer(void);
 
 #endif
