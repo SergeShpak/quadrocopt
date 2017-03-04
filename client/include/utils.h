@@ -4,25 +4,53 @@
 #include <pthread.h>
 #include <stdarg.h>
 
-typedef enum _ThreadId ThreadId;
-typedef struct _CollectionList CollectionList;
+typedef struct _SimpleNode SimpleNode;
+typedef struct _BiNode BiNode;
+typedef struct _SimpleLinkedList SimpleLinkedList;
+typedef struct _DoubleLinkedList DoubleLinkedList;
 
-enum _ThreadId {
-  MAIN_THREAD,
-  LISTENER_THREAD,
-  SENDER_THREAD,
-  PRINTER_THREAD
-};
-
-struct _CollectionList {
+struct _SimpleNode {
   void *el;
-  CollectionList *next;
+  SimpleNode *next;
 };
 
-CollectionList *initialize_collection_list(void *el);
-void add_to_collection_list(CollectionList *coll_list, void *el);
-void free_collection_list(CollectionList *coll_list, 
-                          void (*free_func)(void *el));
+SimpleNode *initialize_simple_node(void *el);
+void free_simple_node(SimpleNode *node, void (*free_func)(void *));
+
+
+struct _BiNode {
+  void *el;
+  BiNode *prev;
+  BiNode *next;
+};
+
+BiNode *initialize_binode(void *el);
+void free_binode(BiNode *node, void (*free_func)(void *));
+
+
+struct _SimpleLinkedList {
+  SimpleNode *head;
+  SimpleNode *tail; 
+};
+
+SimpleLinkedList *initialize_simple_linked_list(SimpleNode *head);
+SimpleLinkedList *add_to_simple_linked_list(SimpleLinkedList *list, 
+                                          SimpleNode *node);
+void free_simple_linked_list(SimpleLinkedList *list, 
+                            void (*free_func)(void *el));
+
+
+struct _DoubleLinkedList {
+  BiNode *head;
+  BiNode *tail;
+  size_t nodes_count;
+};
+
+DoubleLinkedList *initialize_double_linked_list(BiNode *node);
+DoubleLinkedList *add_to_double_linked_list(DoubleLinkedList *list,
+                                            BiNode *node);
+BiNode *RemoveFromDoubleLinkedListRear(DoubleLinkedList *list);
+void free_double_linked_list(DoubleLinkedList *list, void (*free_func)(void*));
 
 void exit_error(char *err_msg);
 void safe_print(char *msg, pthread_mutex_t *mu);

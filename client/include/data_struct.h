@@ -11,6 +11,7 @@ typedef struct _SenderStock SenderStock;
 typedef struct _PrinterParamsCollection PrinterParamsCollection;
 typedef struct _ThreadConditionPacksCollection ThreadConditionPacksCollection;
 typedef struct _WorkersCollection WorkersCollection;
+typedef struct _PrinterDepot  PrinterDepot;
 
 
 struct _BatchStock {
@@ -81,5 +82,12 @@ WorkersCollection *initialize_workers_collection();
 int add_to_workers_collection(pthread_t *worker, WorkersCollection *coll, 
                               pthread_t **dst);
 void free_workers_collection(WorkersCollection *collection);
+
+
+
+struct _PrinterDepot {
+  pthread_mutex_t printer_fetch_mu;
+  i
+};
 
 #endif

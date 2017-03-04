@@ -6,32 +6,57 @@
 
 #include "include/utils.h"
 
-CollectionList *initialize_collection_list(void *el) {
-  CollectionList *coll = (CollectionList *) malloc(sizeof(CollectionList));
-  coll->next = NULL;
-  coll->el = el;
-  return coll;
+SimpleNode *initialize_simple_node(void *el) {
+  SimpleNode *node = (SimpleNode *) malloc(sizeof(SimpleNode));
+  node->el = el;
+  return node;
 }
 
-void add_to_collection_list(CollectionList *coll_list, void *el) {
-  if (NULL == coll_list->next) {
-    CollectionList *new_tail = initialize_collection_list(el);
-    coll_list->next = new_tail;
-    return;
-  }
-  add_to_collection_list(coll_list->next, el);
+void free_simple_node(SimpleNode *node, void (*free_func)(void *)) {
+  free_func(node->el);
+  free(node);
 }
 
-void free_collection_list(CollectionList *coll_list, 
-                          void (*free_func)(void *el)) {
-  CollectionList *curr_node = coll_list;
-  while(NULL != curr_node) {
-    free_func(curr_node->el);
+
+BiNode *initialize_binode(void *el) {
+  BiNode *node = (BiNode *) malloc(sizeof(BiNode));
+  node->el = el;
+  return node;
+}
+
+void free_binode(BiNode *node, void (*free_func)(void *)) {
+  free_func(node->el);
+  free(node);
+}
+
+
+SimpleLinkedList *initialize_simple_linked_list(SimpleNode *head) {
+  SimpleLinkedList *list = 
+                        (SimpleLinkedList *) malloc(sizeof(SimpleLinkedList));
+  list->head = head;
+  list->tail = head;
+  head->next = NULL;
+  return list;
+}
+
+SimpleLinkedList *add_to_simple_linked_list(SimpleLinkedList *list,
+                                            SimpleNode *node) {
+  list->tail->next = node;
+  list->tail->next = NULL;
+  return list;
+}
+
+void free_simple_linked_list(SimpleLinkedList *list, 
+                              void (*free_func)(void*)) {
+  SimpleNode *curr_node = list->head;
+  SimpleNode *node_to_free;
+  while (NULL != curr_node) {
+    node_to_free = curr_node;
     curr_node = curr_node->next;
-  }
-  free(coll_list);
+    free_simple_node(node_to_free, free_func); 
+  } 
+  free(list);
 }
-
 
 void exit_error(char *err_msg) {
   fprintf(stderr, "%s", err_msg);
