@@ -58,6 +58,25 @@ void free_simple_linked_list(SimpleLinkedList *list,
   free(list);
 }
 
+
+DoubleLinkedList *initialize_double_linked_list(BiNode *node) {
+  DoubleLinkedList *list = 
+                        (DoubleLinkedList *) malloc(sizeof(DoubleLinkedList));
+  list->head = node;
+  list->tail = node;
+  list->tail->next = NULL;
+  list->tail->prev = NULL;
+  list->head->next = NULL;
+  list->head->next = NULL;
+  if (NULL == node) {
+    list->nodes_count = 0;
+    return list;
+  }
+  list->nodes_count = 1;
+  return list;
+}
+
+
 void exit_error(char *err_msg) {
   fprintf(stderr, "%s", err_msg);
   exit(1); 
