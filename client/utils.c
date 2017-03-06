@@ -64,16 +64,38 @@ DoubleLinkedList *initialize_double_linked_list(BiNode *node) {
                         (DoubleLinkedList *) malloc(sizeof(DoubleLinkedList));
   list->head = node;
   list->tail = node;
-  list->tail->next = NULL;
-  list->tail->prev = NULL;
-  list->head->next = NULL;
-  list->head->next = NULL;
   if (NULL == node) {
     list->nodes_count = 0;
     return list;
   }
+  list->tail->next = NULL;
+  list->tail->prev = NULL;
+  list->head->next = NULL;
+  list->head->next = NULL;
   list->nodes_count = 1;
   return list;
+}
+
+DoubleLinkedList *add_to_double_linked_list(DoubleLinkedList *list, 
+                                            BiNode *node) {
+  BiNode *prev_tail = list->tail;
+  list->tail = node;
+  if (NULL == node) {
+    return list;
+  }
+  list->tail->next = NULL;
+  list->tail->prev = prev_tail;
+  list->nodes_count += 1;
+  return list;
+}
+
+BiNode *RemoveFromDoubleLinkedListRear(DoubleLinkedList *list) {
+  BiNode *tail_node = list->tail;
+  list->tail = list->tail->prev;
+  if (NULL != tail_node) {
+    list->nodes_count -= 1;
+  }
+  return tail_node;
 }
 
 
