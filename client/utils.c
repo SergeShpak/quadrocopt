@@ -89,13 +89,25 @@ DoubleLinkedList *add_to_double_linked_list(DoubleLinkedList *list,
   return list;
 }
 
-BiNode *RemoveFromDoubleLinkedListRear(DoubleLinkedList *list) {
+BiNode *remove_from_double_linked_list_rear(DoubleLinkedList *list) {
   BiNode *tail_node = list->tail;
   list->tail = list->tail->prev;
   if (NULL != tail_node) {
     list->nodes_count -= 1;
   }
   return tail_node;
+}
+
+void free_double_linked_list(DoubleLinkedList *list, 
+                              void (*free_func)(void*)) {
+  BiNode *current_node = list->head;
+  BiNode *node_to_free = NULL;
+  while (NULL != current_node) {
+    node_to_free = current_node;
+    current_node = current_node->next;
+    free_binode(node_to_free, free_func);
+  }
+  free(list);
 }
 
 
