@@ -137,15 +137,16 @@ int add_to_workers_collection(pthread_t *worker, WorkersCollection *coll,
     return -1;
   }
   *dst = worker;
+  SimpleNode *worker_node = initialize_simple_node(worker);
   if (NULL == coll->workers) {
-    coll->workers = initialize_collection_list(worker);
+    coll->workers = initialize_simple_linked_list(worker_node);
     return 0; 
   }
-  add_to_collection_list(coll->workers, worker);
+  add_to_simple_linked_list(coll->workers, worker_node);
   return 0;
 }
 
 void free_workers_collection(WorkersCollection *collection) {
-  free_collection_list(collection->workers, free);
+  free_simple_linked_list(collection->workers, free);
   free(collection);
 }   

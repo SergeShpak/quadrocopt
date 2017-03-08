@@ -75,7 +75,7 @@ struct _WorkersCollection {
   pthread_t *listener;
   pthread_t *sender;
   pthread_t *printer;  
-  CollectionList *workers;  
+  SimpleLinkedList *workers;  
 };
 
 WorkersCollection *initialize_workers_collection();
@@ -87,7 +87,6 @@ void free_workers_collection(WorkersCollection *collection);
 
 struct _PrinterDepot {
   pthread_mutex_t printer_fetch_mu;
-  i
 };
 
 #endif

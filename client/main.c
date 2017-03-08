@@ -494,7 +494,7 @@ void wait_workers_to_finish() {
   printf("%s\n", "Started cleaning");
   pthread_mutex_unlock(io_mu);
 #endif  
-  CollectionList *curr_worker = workers->workers;
+  SimpleNode *curr_worker = workers->workers->head;
   pthread_t *curr_thread;  
   while(NULL != curr_worker) {
     curr_thread = (pthread_t *) curr_worker->el;
