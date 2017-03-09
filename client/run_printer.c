@@ -1,24 +1,30 @@
 #include <stdlib.h>
 
+#include "include/io_stuff.h"
 #include "include/printer.h"
 #include "include/threading_stuff.h"
-#include "include/io_stuff.h"
+#include "include/utils.h"
 
+void *fetch_msg(PrinterStock *stock);
 void print_to_file(char *str, char *file_path, char *file_mode);
 void print_to_stream(char *str, FILE *stream);
 
-void print(PrinterStock *stock, PrinterPack *pack) {
-  wait_with_pack(pack->cond_packs->calc_to_printer_signal);
-  PrinterParameters *params = copy_printer_params(stock->params);
-  signal_with_pack(pack->cond_packs->printer_signal);
+int print(PrinterStock *stock, PrinterPack *pack) {
+  void *msg = fetch_msg(stock);
+  if (NULL == msg) {
+    return -1; 
+  }
+  PrinterParameters *params = stock->params;
   char *str_to_print;
+  FloatArray *float_arr;
   switch(params->payload_type) {
     case STRING:
-      str_to_print = (char *)params->payload;
+      str_to_print = (char *)msg;
       break;
     case FLOAT_ARR:
-      str_to_print = float_arr_to_string((float *)params->payload, 
-                                          params->payload_len / sizeof(float));
+      float_arr = (FloatArray *)msg;
+      str_to_print = float_arr_to_string(float_arr->arr, 
+                                          float_arr->arr_len / sizeof(float));
       break;
     default:
       //TODO: exit with error
@@ -35,19 +41,25 @@ void print(PrinterStock *stock, PrinterPack *pack) {
       print_to_file(str_to_print, params->file_path, params->open_mode);
       break;
   }
-  free_printer_params(params);
-  return;
+  return 0;
 }
 
 void run_printer(PrinterPack *pp, void (*create_output_files)(void)) {
   create_output_files();
   while(1) {
-    print(pp->ps, pp);
+    int print_status = print(pp->ps, pp);
+    if (-1 == print_status) {
+      break;
+    }
   }
 }
 
 void stop_printer(void) {
   pthread_exit(NULL);
+}
+
+void *fetch_msg(PrinterStock *stock) {
+  return NULL;
 }
 
 void print_to_file(char *str, char *file_path, char *file_mode) {

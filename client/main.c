@@ -173,7 +173,7 @@ ThreadConditionPack *initialize_thread_cond_pack(int init_verif_var) {
 
 PrinterParamsCollection *create_printer_params_collection() {
   PrinterParameters *results_params = 
-    initialize_printer_params(FOUT, FLOAT_ARR, fname_results, "a+", NULL, -1);
+    initialize_printer_params(FOUT, FLOAT_ARR, fname_results, "a+");
   PrinterParamsCollection *collection = 
                         initialize_printer_params_collection(results_params);
   return collection;
@@ -356,8 +356,7 @@ void print_calc_data(CalculatorData *calc_data) {
   float *payload = get_calc_data_for_printer(calc_data, &payload_len);
   size_t payload_len_bytes = payload_len * sizeof(float);
   wait_with_pack(thread_cond_packs->printer_from_signal);
-  printer_params_collection->results_params->payload = (void *) payload;
-  printer_params_collection->results_params->payload_len = payload_len_bytes;
+  //TODO: add payload
   printer_stock->params = printer_params_collection->results_params;
   signal_with_pack(thread_cond_packs->printer_to_signal); 
 }

@@ -111,6 +111,19 @@ void free_double_linked_list(DoubleLinkedList *list,
 }
 
 
+FloatArray *initialize_float_array(float *arr, size_t arr_len) {
+  FloatArray *fa = (FloatArray *) malloc(sizeof(FloatArray));
+  fa->arr = copy_arr_of_floats(arr, arr_len);
+  fa->arr_len = arr_len;
+  return fa;
+}
+
+void free_float_array(FloatArray *float_arr) {
+  free(float_arr->arr);
+  free(float_arr);
+}
+
+
 void exit_error(char *err_msg) {
   fprintf(stderr, "%s", err_msg);
   exit(1); 

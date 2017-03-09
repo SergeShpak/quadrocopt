@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 #include "threading_stuff.h"
+#include "utils.h"
 
 typedef enum _OutputStream OutputStream;
 typedef enum _ParametersPayloadType ParametersPayloadType;
@@ -69,27 +70,27 @@ struct _PrinterParameters {
   ParametersPayloadType payload_type;
   char *file_path;
   char *open_mode;
-  void *payload;
-  size_t payload_len;
 };
 
 PrinterParameters *initialize_printer_params(OutputStream out_stream, 
                     ParametersPayloadType payload_type, const char *file_path, 
-                    char *open_mode, void *payload, int payload_len);
+                    char *open_mode);
 void free_printer_params(PrinterParameters *printer_params);
 PrinterParameters *copy_printer_params(PrinterParameters *params);
 
 
 struct _PrinterStock {
   PrinterParameters *params;
+  DoubleLinkedList *message_queue; 
 };
 
 PrinterStock *initialize_printer_stock();
 void set_printer_stock(PrinterStock *stock, PrinterParameters *params);
-void free_printer_stock(PrinterStock *stock);
+void add_message_to_printer_queue(PrinterStock *stock, void *msg);
+void free_printer_stock(PrinterStock *stock, void (*free_func)(void*));
 
 
-void print(PrinterStock *stock, PrinterPack *pack);
+int print(PrinterStock *stock, PrinterPack *pack);
 void run_printer(PrinterPack *pp, void (*create_output_files)(void));
 void stop_printer(void);
 

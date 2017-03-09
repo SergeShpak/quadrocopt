@@ -9,6 +9,9 @@ typedef struct _BiNode BiNode;
 typedef struct _SimpleLinkedList SimpleLinkedList;
 typedef struct _DoubleLinkedList DoubleLinkedList;
 
+typedef struct _FloatArray FloatArray;
+
+
 struct _SimpleNode {
   void *el;
   SimpleNode *next;
@@ -51,6 +54,14 @@ DoubleLinkedList *add_to_double_linked_list(DoubleLinkedList *list,
                                             BiNode *node);
 BiNode *remove_from_double_linked_list_rear(DoubleLinkedList *list);
 void free_double_linked_list(DoubleLinkedList *list, void (*free_func)(void*));
+
+struct _FloatArray {
+  float *arr;
+  size_t arr_len;
+};
+
+FloatArray *initialize_float_array(float *arr, size_t arr_len);
+void free_float_array(FloatArray *float_arr);
 
 void exit_error(char *err_msg);
 void safe_print(char *msg, pthread_mutex_t *mu);

@@ -52,25 +52,19 @@ void free_printer_thread_cond_packs(PrinterThreadCondPackets *cond_packs) {
 
 
 PrinterParameters *initialize_printer_params(OutputStream out_stream,
-                    ParametersPayloadType payload_type, const char *file_path,
-                          char *open_mode, void *payload, int payload_len) {
+                                      ParametersPayloadType payload_type, 
+                                      const char *file_path, char *open_mode) {
   PrinterParameters *params = 
                       (PrinterParameters *) malloc(sizeof(PrinterParameters));
   params->out_stream = out_stream;
   params->payload_type = payload_type;
   params->file_path = NULL;
   params->open_mode = NULL;
-  params->payload = NULL;
-  params->payload_len = -1;
   if (NULL != file_path) {
     params->file_path = copy_str(file_path);
   }
   if (NULL != open_mode) {
     params->open_mode = copy_str(open_mode); 
-  }
-  if (NULL != payload) {
-    params->payload = copy_buf(payload, payload_len);
-    params->payload_len = payload_len;
   }
   return params;
 }
@@ -78,7 +72,6 @@ PrinterParameters *initialize_printer_params(OutputStream out_stream,
 void free_printer_params(PrinterParameters *params) {
   free(params->file_path);
   free(params->open_mode);
-  free(params->payload);
   free(params);
 }
 
@@ -87,8 +80,6 @@ PrinterParameters *copy_printer_params(PrinterParameters *params) {
                       (PrinterParameters *) malloc(sizeof(PrinterParameters));
   dupl_params->payload_type = params->payload_type;
   dupl_params->out_stream = params->out_stream;
-  dupl_params->payload_len = params->payload_len;
-  dupl_params->payload = copy_buf(params->payload, params->payload_len);
   dupl_params->file_path = copy_str(params->file_path);
   dupl_params->open_mode = copy_str(params->open_mode);
   return dupl_params; 
@@ -98,17 +89,23 @@ PrinterParameters *copy_printer_params(PrinterParameters *params) {
 PrinterStock *initialize_printer_stock() {
   PrinterStock *stock = (PrinterStock *) malloc(sizeof(PrinterStock));
   stock->params = NULL;
+  stock->message_queue = NULL;
   return stock;
 }
 
 void set_printer_stock(PrinterStock *stock, PrinterParameters *params) {
   stock->params = initialize_printer_params(params->out_stream, 
-                    params->payload_type, params->file_path, params->open_mode, 
-                    params->payload, params->payload_len);
+                  params->payload_type, params->file_path, params->open_mode);
 }
 
-void free_printer_stock(PrinterStock *stock) {
+void add_message_to_printer_queue(PrinterStock *stock, void *msg) {
+  BiNode *node = initialize_binode(msg);
+  add_to_double_linked_list(stock->message_queue, node);
+}
+
+void free_printer_stock(PrinterStock *stock, void (*free_func)(void*)) {
   free_printer_params(stock->params);
+  free_double_linked_list(stock->message_queue, free_func);
   free(stock);
 }
 
