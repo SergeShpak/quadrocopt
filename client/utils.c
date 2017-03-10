@@ -78,13 +78,28 @@ DoubleLinkedList *initialize_double_linked_list(BiNode *node) {
 
 DoubleLinkedList *add_to_double_linked_list(DoubleLinkedList *list, 
                                             BiNode *node) {
-  BiNode *prev_tail = list->tail;
-  list->tail = node;
   if (NULL == node) {
     return list;
   }
-  list->tail->next = NULL;
+  BiNode *prev_tail = list->tail;
+  prev_tail->next = node;
+  list->tail = node;
   list->tail->prev = prev_tail;
+  list->tail->next = NULL;
+  list->nodes_count += 1;
+  return list;
+}
+
+DoubleLinkedList *add_to_double_linked_list_front(DoubleLinkedList *list,
+                                                  BiNode *node) {
+  if (NULL == node) {
+    return list;
+  }
+  BiNode *prev_head = list->head;
+  prev_head->prev = node;
+  list->head = node;
+  list->head->next = prev_head;
+  list->head->prev = NULL;
   list->nodes_count += 1;
   return list;
 }

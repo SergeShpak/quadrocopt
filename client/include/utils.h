@@ -52,6 +52,8 @@ struct _DoubleLinkedList {
 DoubleLinkedList *initialize_double_linked_list(BiNode *node);
 DoubleLinkedList *add_to_double_linked_list(DoubleLinkedList *list,
                                             BiNode *node);
+DoubleLinkedList *add_to_double_linked_list_rear(DoubleLinkedList *list,
+                                                  BiNode *node);
 BiNode *remove_from_double_linked_list_rear(DoubleLinkedList *list);
 void free_double_linked_list(DoubleLinkedList *list, void (*free_func)(void*));
 
