@@ -2,6 +2,7 @@
 **/bin/
 **/profiling/
 **/.ropeproject/
+**/Unity/
 **/*.txt
 **/*.sh
 **/*.swp
